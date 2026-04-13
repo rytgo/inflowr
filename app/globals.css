@@ -3,16 +3,180 @@
 @tailwind utilities;
 
 :root {
-  --background: #f4f6f8;
-  --surface: #ffffff;
-  --border: #dbe1e7;
-  --text: #111827;
-  --muted: #6b7280;
-  --primary: #0f766e;
+  --bg-canvas: #000000;
+  --bg-subtle: #050505;
+  --bg-panel: #0b0b0b;
+  --bg-panel-strong: #111111;
+  --bg-panel-soft: #0f0f10;
+
+  --border-subtle: #1a1a1d;
+  --border-default: #242428;
+  --border-strong: #2f2f35;
+
+  --text-primary: #fafafa;
+  --text-secondary: #d0d0d6;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+
+  --accent: #a7c7ff;
+  --accent-hover: #c0d7ff;
+  --accent-soft: rgba(167, 199, 255, 0.14);
+  --accent-ring: rgba(167, 199, 255, 0.36);
+
+  --status-active: #34d399;
+  --status-active-soft: rgba(52, 211, 153, 0.14);
+  --status-overdue: #fb7185;
+  --status-overdue-soft: rgba(251, 113, 133, 0.14);
+  --status-completed: #93c5fd;
+  --status-completed-soft: rgba(147, 197, 253, 0.14);
+  --status-warning: #fbbf24;
+  --status-warning-soft: rgba(251, 191, 36, 0.14);
+
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.11);
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+
+  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 8px 28px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 18px 42px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 26px 62px rgba(0, 0, 0, 0.64);
+
+  --sidebar-width: 272px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  margin: 0;
-  background: var(--background);
-  color: var(--text);
+  background: radial-gradient(850px 300px at 14% -8%, rgba(167, 199, 255, 0.08), transparent 60%),
+    radial-gradient(900px 320px at 90% -14%, rgba(255, 255, 255, 0.04), transparent 60%),
+    linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg-canvas) 100%);
+  color: var(--text-primary);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: radial-gradient(circle at 30% 0%, black 0, transparent 72%);
+  opacity: 0.16;
+  z-index: -1;
+}
+
+::selection {
+  background: rgba(167, 199, 255, 0.26);
+  color: var(--text-primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+@keyframes pulse-soft {
+  0% { opacity: 0.42; }
+  50% { opacity: 0.82; }
+  100% { opacity: 0.42; }
+}
+
+@keyframes slide-up-soft {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.skeleton {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+  background: var(--bg-panel-strong);
+  border-radius: var(--radius-sm);
+}
+
+.surface-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015) 0%, rgba(255, 255, 255, 0) 100%), var(--bg-panel);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-sm);
+}
+
+.page-enter {
+  animation: slide-up-soft 260ms ease-out both;
+}
+
+.toast-enter {
+  animation: toast-in 180ms ease-out both;
+}
+
+.stagger-1 {
+  animation-delay: 40ms;
+}
+
+.stagger-2 {
+  animation-delay: 90ms;
+}
+
+.stagger-3 {
+  animation-delay: 140ms;
+}
+
+.data-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.data-label {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }

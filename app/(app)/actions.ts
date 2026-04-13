@@ -48,6 +48,39 @@ function getNullableUrl(formData: FormData, key: string): string | null {
   }
 }
 
+function isNextRedirect(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "digest" in error &&
+      typeof (error as { digest?: unknown }).digest === "string" &&
+      ((error as { digest: string }).digest.startsWith("NEXT_REDIRECT"))
+  );
+}
+
+function readErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Something went wrong. Please try again.";
+}
+
+function withFlash(path: string, kind: "notice" | "error", message: string): string {
+  const [base, hashPart] = path.split("#");
+  const url = new URL(base || "/dashboard", "http://localhost");
+  url.searchParams.set(kind, message);
+  const hash = hashPart ? `#${hashPart}` : "";
+  return `${url.pathname}${url.search}${hash}`;
+}
+
+function redirectNotice(path: string, message: string) {
+  redirect(withFlash(path, "notice", message));
+}
+
+function redirectError(path: string, message: string) {
+  redirect(withFlash(path, "error", message));
+}
+
 async function ensureAuthenticated() {
   const supabase = createClient();
   const {
@@ -55,7 +88,7 @@ async function ensureAuthenticated() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error("Unauthenticated mutation request.");
+    throw new Error("Session expired. Please sign in again.");
   }
 
   return supabase;
@@ -73,246 +106,382 @@ async function assertNoError(result: { error: { message: string } | null }) {
 }
 
 export async function createInfluencer(formData: FormData) {
-  const supabase = await ensureAuthenticated();
-  const name = getString(formData, "name");
-  const platform = getString(formData, "platform");
+  const fallback = "/influencers";
 
-  if (!name || !platform) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const name = getString(formData, "name");
+    const platform = getString(formData, "platform");
 
-  await assertNoError(await (supabase.from("influencers") as any).insert({
-    name,
-    platform,
-    profile_url: getNullableUrl(formData, "profile_url"),
-    notes: getNullableString(formData, "notes")
-  }));
+    if (!name || !platform) {
+      redirectError(fallback, "Name and platform are required.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath("/influencers");
+    await assertNoError(
+      await (supabase.from("influencers") as any).insert({
+        name,
+        platform,
+        profile_url: getNullableUrl(formData, "profile_url"),
+        notes: getNullableString(formData, "notes")
+      })
+    );
+
+    revalidateCoreViews();
+    revalidatePath("/influencers");
+    redirectNotice(fallback, "Influencer created.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function updateInfluencer(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
-  const name = getString(formData, "name");
-  const platform = getString(formData, "platform");
+  const fallback = id ? `/influencers/${id}` : "/influencers";
 
-  if (!id || !name || !platform) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const name = getString(formData, "name");
+    const platform = getString(formData, "platform");
 
-  await assertNoError(await (supabase
-    .from("influencers") as any)
-    .update({
-      name,
-      platform,
-      profile_url: getNullableUrl(formData, "profile_url"),
-      notes: getNullableString(formData, "notes")
-    })
-    .eq("id", id));
+    if (!id || !name || !platform) {
+      redirectError(fallback, "Name and platform are required.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath("/influencers");
-  revalidatePath(`/influencers/${id}`);
+    await assertNoError(
+      await (supabase.from("influencers") as any)
+        .update({
+          name,
+          platform,
+          profile_url: getNullableUrl(formData, "profile_url"),
+          notes: getNullableString(formData, "notes")
+        })
+        .eq("id", id)
+    );
+
+    revalidateCoreViews();
+    revalidatePath("/influencers");
+    revalidatePath(`/influencers/${id}`);
+    redirectNotice(`/influencers/${id}`, "Influencer updated.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function deleteInfluencer(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
+  const fallback = id ? `/influencers/${id}` : "/influencers";
 
-  if (!id) return;
+  try {
+    const supabase = await ensureAuthenticated();
 
-  await assertNoError(await (supabase.from("influencers") as any).delete().eq("id", id));
+    if (!id) {
+      redirectError("/influencers", "Influencer id is missing.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath("/influencers");
-  redirect("/influencers");
+    await assertNoError(await (supabase.from("influencers") as any).delete().eq("id", id));
+
+    revalidateCoreViews();
+    revalidatePath("/influencers");
+    redirectNotice("/influencers", "Influencer deleted.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function createCampaign(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const influencerId = getString(formData, "influencer_id");
-  const name = getString(formData, "name");
-  const totalValue = getNumber(formData, "total_value");
-  const startDate = getNullableDate(formData, "start_date");
-  const endDate = getNullableDate(formData, "end_date");
+  const fallback = influencerId ? `/influencers/${influencerId}` : "/influencers";
 
-  if (!influencerId || !name || totalValue < 0) return;
-  if (startDate && endDate && startDate > endDate) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const name = getString(formData, "name");
+    const totalValue = getNumber(formData, "total_value");
+    const startDate = getNullableDate(formData, "start_date");
+    const endDate = getNullableDate(formData, "end_date");
 
-  await assertNoError(await (supabase.from("campaigns") as any).insert({
-    influencer_id: influencerId,
-    name,
-    total_value: totalValue,
-    notes: getNullableString(formData, "notes"),
-    start_date: startDate,
-    end_date: endDate
-  }));
+    if (!influencerId || !name || totalValue < 0) {
+      redirectError(fallback, "Campaign name and value are required.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/influencers/${influencerId}`);
+    if (startDate && endDate && startDate > endDate) {
+      redirectError(fallback, "End date must be after start date.");
+    }
+
+    await assertNoError(
+      await (supabase.from("campaigns") as any).insert({
+        influencer_id: influencerId,
+        name,
+        total_value: totalValue,
+        notes: getNullableString(formData, "notes"),
+        start_date: startDate,
+        end_date: endDate
+      })
+    );
+
+    revalidateCoreViews();
+    revalidatePath(`/influencers/${influencerId}`);
+    redirectNotice(`/influencers/${influencerId}`, "Campaign created.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function updateCampaign(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
-  const name = getString(formData, "name");
-  const totalValue = getNumber(formData, "total_value");
-  const startDate = getNullableDate(formData, "start_date");
-  const endDate = getNullableDate(formData, "end_date");
+  const fallback = id ? `/campaigns/${id}` : "/dashboard";
 
-  if (!id || !name || totalValue < 0) return;
-  if (startDate && endDate && startDate > endDate) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const name = getString(formData, "name");
+    const totalValue = getNumber(formData, "total_value");
+    const startDate = getNullableDate(formData, "start_date");
+    const endDate = getNullableDate(formData, "end_date");
 
-  await assertNoError(await (supabase
-    .from("campaigns") as any)
-    .update({
-      name,
-      total_value: totalValue,
-      notes: getNullableString(formData, "notes"),
-      start_date: startDate,
-      end_date: endDate
-    })
-    .eq("id", id));
+    if (!id || !name || totalValue < 0) {
+      redirectError(fallback, "Campaign name and value are required.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/campaigns/${id}`);
+    if (startDate && endDate && startDate > endDate) {
+      redirectError(fallback, "End date must be after start date.");
+    }
+
+    await assertNoError(
+      await (supabase.from("campaigns") as any)
+        .update({
+          name,
+          total_value: totalValue,
+          notes: getNullableString(formData, "notes"),
+          start_date: startDate,
+          end_date: endDate
+        })
+        .eq("id", id)
+    );
+
+    revalidateCoreViews();
+    revalidatePath(`/campaigns/${id}`);
+    redirectNotice(`/campaigns/${id}`, "Campaign updated.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function deleteCampaign(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
   const influencerId = getString(formData, "influencer_id");
+  const fallback = id ? `/campaigns/${id}` : influencerId ? `/influencers/${influencerId}` : "/influencers";
 
-  if (!id || !influencerId) return;
+  try {
+    const supabase = await ensureAuthenticated();
 
-  await assertNoError(await (supabase.from("campaigns") as any).delete().eq("id", id));
+    if (!id || !influencerId) {
+      redirectError(fallback, "Campaign id is missing.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/influencers/${influencerId}`);
-  redirect(`/influencers/${influencerId}`);
+    await assertNoError(await (supabase.from("campaigns") as any).delete().eq("id", id));
+
+    revalidateCoreViews();
+    revalidatePath(`/influencers/${influencerId}`);
+    redirectNotice(`/influencers/${influencerId}`, "Campaign deleted.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function createDeliverable(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const campaignId = getString(formData, "campaign_id");
-  const title = getString(formData, "title");
+  const fallback = campaignId ? `/campaigns/${campaignId}#deliverables` : "/dashboard";
 
-  if (!campaignId || !title) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const title = getString(formData, "title");
 
-  await assertNoError(await (supabase.from("deliverables") as any).insert({
-    campaign_id: campaignId,
-    title,
-    due_date: getNullableDate(formData, "due_date"),
-    live_url: getNullableUrl(formData, "live_url"),
-    is_posted: false,
-    posted_at: null
-  }));
+    if (!campaignId || !title) {
+      redirectError(fallback, "Deliverable title is required.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/campaigns/${campaignId}`);
+    await assertNoError(
+      await (supabase.from("deliverables") as any).insert({
+        campaign_id: campaignId,
+        title,
+        due_date: getNullableDate(formData, "due_date"),
+        live_url: getNullableUrl(formData, "live_url"),
+        is_posted: false,
+        posted_at: null
+      })
+    );
+
+    revalidateCoreViews();
+    revalidatePath(`/campaigns/${campaignId}`);
+    redirectNotice(`/campaigns/${campaignId}#deliverables`, "Deliverable added.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function updateDeliverable(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
   const campaignId = getString(formData, "campaign_id");
-  const title = getString(formData, "title");
+  const fallback = campaignId ? `/campaigns/${campaignId}#deliverables` : "/dashboard";
 
-  if (!id || !campaignId || !title) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const title = getString(formData, "title");
 
-  const isPosted = formData.get("is_posted") === "on";
-  const { data: existing } = await (supabase
-    .from("deliverables") as any)
-    .select("is_posted, posted_at")
-    .eq("id", id)
-    .single();
+    if (!id || !campaignId || !title) {
+      redirectError(fallback, "Deliverable title is required.");
+    }
 
-  const postedAt = isPosted
-    ? existing?.is_posted
-      ? existing?.posted_at ?? new Date().toISOString()
-      : new Date().toISOString()
-    : null;
+    const isPosted = formData.get("is_posted") === "on";
+    const { data: existing } = await (supabase.from("deliverables") as any)
+      .select("is_posted, posted_at")
+      .eq("id", id)
+      .single();
 
-  await assertNoError(await (supabase
-    .from("deliverables") as any)
-    .update({
-      title,
-      due_date: getNullableDate(formData, "due_date"),
-      live_url: getNullableUrl(formData, "live_url"),
-      is_posted: isPosted,
-      posted_at: postedAt
-    })
-    .eq("id", id));
+    const postedAt = isPosted
+      ? existing?.is_posted
+        ? existing?.posted_at ?? new Date().toISOString()
+        : new Date().toISOString()
+      : null;
 
-  revalidateCoreViews();
-  revalidatePath(`/campaigns/${campaignId}`);
+    await assertNoError(
+      await (supabase.from("deliverables") as any)
+        .update({
+          title,
+          due_date: getNullableDate(formData, "due_date"),
+          live_url: getNullableUrl(formData, "live_url"),
+          is_posted: isPosted,
+          posted_at: postedAt
+        })
+        .eq("id", id)
+    );
+
+    revalidateCoreViews();
+    revalidatePath(`/campaigns/${campaignId}`);
+    redirectNotice(`/campaigns/${campaignId}#deliverables`, "Deliverable updated.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function deleteDeliverable(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
   const campaignId = getString(formData, "campaign_id");
+  const fallback = campaignId ? `/campaigns/${campaignId}#deliverables` : "/dashboard";
 
-  if (!id || !campaignId) return;
+  try {
+    const supabase = await ensureAuthenticated();
 
-  await assertNoError(await (supabase.from("deliverables") as any).delete().eq("id", id));
+    if (!id || !campaignId) {
+      redirectError(fallback, "Deliverable id is missing.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/campaigns/${campaignId}`);
+    await assertNoError(await (supabase.from("deliverables") as any).delete().eq("id", id));
+
+    revalidateCoreViews();
+    revalidatePath(`/campaigns/${campaignId}`);
+    redirectNotice(`/campaigns/${campaignId}#deliverables`, "Deliverable deleted.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function createPayment(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const campaignId = getString(formData, "campaign_id");
   const influencerId = getString(formData, "influencer_id");
-  const amount = getNumber(formData, "amount");
+  const fallback = campaignId ? `/campaigns/${campaignId}#payments` : "/dashboard";
 
-  if (!campaignId || amount < 0) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const amount = getNumber(formData, "amount");
 
-  await assertNoError(await (supabase.from("payments") as any).insert({
-    campaign_id: campaignId,
-    amount,
-    payment_date: getDateOrToday(formData, "payment_date"),
-    note: getNullableString(formData, "note")
-  }));
+    if (!campaignId || amount < 0) {
+      redirectError(fallback, "Payment amount is required.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/campaigns/${campaignId}`);
-  if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+    await assertNoError(
+      await (supabase.from("payments") as any).insert({
+        campaign_id: campaignId,
+        amount,
+        payment_date: getDateOrToday(formData, "payment_date"),
+        note: getNullableString(formData, "note")
+      })
+    );
+
+    revalidateCoreViews();
+    revalidatePath(`/campaigns/${campaignId}`);
+    if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+    redirectNotice(`/campaigns/${campaignId}#payments`, "Payment logged.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function updatePayment(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
   const campaignId = getString(formData, "campaign_id");
   const influencerId = getString(formData, "influencer_id");
-  const amount = getNumber(formData, "amount");
+  const fallback = campaignId ? `/campaigns/${campaignId}#payments` : "/dashboard";
 
-  if (!id || !campaignId || amount < 0) return;
+  try {
+    const supabase = await ensureAuthenticated();
+    const amount = getNumber(formData, "amount");
 
-  await assertNoError(await (supabase
-    .from("payments") as any)
-    .update({
-      amount,
-      payment_date: getDateOrToday(formData, "payment_date"),
-      note: getNullableString(formData, "note")
-    })
-    .eq("id", id));
+    if (!id || !campaignId || amount < 0) {
+      redirectError(fallback, "Valid payment amount is required.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/campaigns/${campaignId}`);
-  if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+    await assertNoError(
+      await (supabase.from("payments") as any)
+        .update({
+          amount,
+          payment_date: getDateOrToday(formData, "payment_date"),
+          note: getNullableString(formData, "note")
+        })
+        .eq("id", id)
+    );
+
+    revalidateCoreViews();
+    revalidatePath(`/campaigns/${campaignId}`);
+    if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+    redirectNotice(`/campaigns/${campaignId}#payments`, "Payment updated.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
 
 export async function deletePayment(formData: FormData) {
-  const supabase = await ensureAuthenticated();
   const id = getString(formData, "id");
   const campaignId = getString(formData, "campaign_id");
   const influencerId = getString(formData, "influencer_id");
+  const fallback = campaignId ? `/campaigns/${campaignId}#payments` : "/dashboard";
 
-  if (!id || !campaignId) return;
+  try {
+    const supabase = await ensureAuthenticated();
 
-  await assertNoError(await (supabase.from("payments") as any).delete().eq("id", id));
+    if (!id || !campaignId) {
+      redirectError(fallback, "Payment id is missing.");
+    }
 
-  revalidateCoreViews();
-  revalidatePath(`/campaigns/${campaignId}`);
-  if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+    await assertNoError(await (supabase.from("payments") as any).delete().eq("id", id));
+
+    revalidateCoreViews();
+    revalidatePath(`/campaigns/${campaignId}`);
+    if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+    redirectNotice(`/campaigns/${campaignId}#payments`, "Payment deleted.");
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    redirectError(fallback, readErrorMessage(error));
+  }
 }
+

@@ -1,6 +1,14 @@
 import Link from "next/link";
 
 import { createInfluencer } from "@/app/(app)/actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Drawer } from "@/components/ui/drawer";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { Table, TableBody, TableCell, TableHead, TableRow, TableTh } from "@/components/ui/table";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function InfluencersPage() {
@@ -18,92 +26,79 @@ export default async function InfluencersPage() {
     created_at: string;
   }>;
 
+  const platformBreakdown = influencers.reduce<Record<string, number>>((acc, item) => {
+    acc[item.platform] = (acc[item.platform] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const topPlatform = Object.entries(platformBreakdown).sort((a, b) => b[1] - a[1])[0];
+
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h1 className="text-2xl font-semibold">Influencers</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Add and manage influencers in your private workspace.
-        </p>
+    <div className="page-enter space-y-6">
+      <PageHeader
+        title="Influencers"
+        description="Operate your creator roster with clean records and campaign links."
+        action={
+          <Drawer triggerLabel="New influencer" title="Create influencer" description="Add a creator to your private workspace.">
+            <form action={createInfluencer} className="grid grid-cols-1 gap-4">
+              <Input name="name" required placeholder="Influencer name" label="Name" hint="Required" />
+              <Input name="platform" required placeholder="Instagram, TikTok..." label="Platform" hint="Required" />
+              <Input name="profile_url" placeholder="https://..." label="Profile URL" hint="Optional, must start with https://" />
+              <Textarea name="notes" placeholder="Any notes about this influencer..." label="Notes" hint="Optional" />
+              <div>
+                <Button type="submit">Create influencer</Button>
+              </div>
+            </form>
+          </Drawer>
+        }
+      />
 
-        <form action={createInfluencer} className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <input
-            name="name"
-            required
-            placeholder="Influencer name"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="platform"
-            required
-            placeholder="Platform (Instagram, TikTok...)"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="profile_url"
-            placeholder="Profile URL (optional)"
-            className="rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <textarea
-            name="notes"
-            placeholder="Notes (optional)"
-            className="min-h-24 rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <button
-            type="submit"
-            className="w-fit rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white"
-          >
-            Add influencer
-          </button>
-        </form>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="page-enter stagger-1"><StatCard label="Total influencers" value={String(influencers.length)} /></div>
+        <div className="page-enter stagger-2"><StatCard label="Platforms tracked" value={String(Object.keys(platformBreakdown).length)} /></div>
+        <div className="page-enter stagger-3"><StatCard label="Top platform" value={topPlatform ? `${topPlatform[0]} (${topPlatform[1]})` : "--"} /></div>
       </section>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-lg font-medium">Your influencers</h2>
+      <Card>
+        <CardHeader title="Directory" description="Open any influencer to view campaigns, balances, and timeline context." />
+
         {influencers.length ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-[var(--muted)]">
-                  <th className="py-2 font-medium">Name</th>
-                  <th className="py-2 font-medium">Platform</th>
-                  <th className="py-2 font-medium">Profile</th>
-                  <th className="py-2 font-medium">Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {influencers.map((influencer) => (
-                  <tr key={influencer.id} className="border-b border-[var(--border)]">
-                    <td className="py-3">{influencer.name}</td>
-                    <td className="py-3">{influencer.platform}</td>
-                    <td className="py-3">
-                      {influencer.profile_url ? (
-                        <a
-                          href={influencer.profile_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[var(--primary)]"
-                        >
-                          Open profile
-                        </a>
-                      ) : (
-                        <span className="text-[var(--muted)]">-</span>
-                      )}
-                    </td>
-                    <td className="py-3">
-                      <Link className="text-[var(--primary)]" href={`/influencers/${influencer.id}`}>
-                        Manage
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHead>
+              <TableTh>Name</TableTh>
+              <TableTh>Platform</TableTh>
+              <TableTh>Profile</TableTh>
+              <TableTh className="text-right">Actions</TableTh>
+            </TableHead>
+            <TableBody>
+              {influencers.map((influencer) => (
+                <TableRow key={influencer.id}>
+                  <TableCell className="font-medium text-text-primary">{influencer.name}</TableCell>
+                  <TableCell>{influencer.platform}</TableCell>
+                  <TableCell>
+                    {influencer.profile_url ? (
+                      <a href={influencer.profile_url} target="_blank" rel="noreferrer" className="text-accent hover:text-accent-hover">
+                        Open profile
+                      </a>
+                    ) : (
+                      <span className="text-text-faint">--</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link href={`/influencers/${influencer.id}`}>
+                      <Button variant="ghost" size="sm">
+                        Open
+                      </Button>
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         ) : (
-          <p className="mt-3 text-sm text-[var(--muted)]">No influencers yet.</p>
+          <EmptyState title="No influencers yet" description="Create your first influencer to start campaign operations." />
         )}
-      </section>
+      </Card>
     </div>
   );
 }

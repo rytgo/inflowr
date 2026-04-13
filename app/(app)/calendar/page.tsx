@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { parseDateOnly, todayDateOnly } from "@/lib/date";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,6 +22,7 @@ type CalendarItem = {
 function formatDate(dateValue: string): string {
   const date = parseDateOnly(dateValue);
   return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric"
@@ -38,36 +44,57 @@ function groupByDate(items: CalendarItem[]): Array<{ date: string; entries: Cale
     .map(([date, entries]) => ({ date, entries }));
 }
 
-function Section({
+function TimelineSection({
   title,
   emptyText,
-  groups
+  emptyDescription,
+  groups,
+  variant
 }: {
   title: string;
   emptyText: string;
+  emptyDescription?: string;
   groups: Array<{ date: string; entries: CalendarItem[] }>;
+  variant: "overdue" | "upcoming" | "completed";
 }) {
+  const accent =
+    variant === "overdue" ? "var(--status-overdue)" : variant === "upcoming" ? "var(--accent)" : "var(--status-completed)";
+
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-      <h2 className="text-lg font-medium">{title}</h2>
+    <Card>
+      <CardHeader title={title} />
       {groups.length ? (
-        <div className="mt-4 space-y-4">
+        <div className="space-y-5">
           {groups.map((group) => (
-            <div key={group.date}>
-              <p className="text-sm font-medium">{formatDate(group.date)}</p>
-              <div className="mt-2 space-y-2">
+            <div key={group.date} className="rounded-sm border border-border-subtle bg-panel-soft/45 p-4">
+              <p className="text-xs uppercase tracking-[0.08em] text-text-faint">{formatDate(group.date)}</p>
+              <div className="mt-3 space-y-2">
                 {group.entries.map((entry) => (
                   <div
                     key={entry.deliverable_id}
-                    className="rounded-lg border border-[var(--border)] bg-white px-4 py-3 text-sm"
+                    className="rounded-sm border border-border-subtle bg-panel px-4 py-3"
+                    style={{ boxShadow: `inset 2px 0 0 ${accent}` }}
                   >
-                    <p className="font-medium">{entry.deliverable_title}</p>
-                    <p className="mt-1 text-[var(--muted)]">
-                      {entry.influencer_name} ({entry.platform}) - {entry.campaign_name}
-                    </p>
-                    <Link className="mt-1 inline-block text-[var(--primary)]" href={`/campaigns/${entry.campaign_id}`}>
-                      Open campaign
-                    </Link>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">{entry.deliverable_title}</p>
+                        <p className="mt-1 text-xs text-text-faint">
+                          {entry.influencer_name} | {entry.platform} | {entry.campaign_name}
+                        </p>
+                      </div>
+                      {entry.is_posted ? (
+                        <Badge variant="completed">Posted</Badge>
+                      ) : variant === "overdue" ? (
+                        <Badge variant="overdue">Overdue</Badge>
+                      ) : (
+                        <Badge variant="active">Upcoming</Badge>
+                      )}
+                    </div>
+                    <div className="mt-2">
+                      <Link href={`/campaigns/${entry.campaign_id}`} className="text-xs font-medium text-accent hover:text-accent-hover">
+                        Open campaign
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -75,9 +102,9 @@ function Section({
           ))}
         </div>
       ) : (
-        <p className="mt-2 text-sm text-[var(--muted)]">{emptyText}</p>
+        <EmptyState title={emptyText} description={emptyDescription} />
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -133,12 +160,8 @@ export default async function CalendarPage() {
 
   const today = todayDateOnly();
 
-  const overdue = calendarItems.filter(
-    (item) => !item.is_posted && item.due_date && parseDateOnly(item.due_date) < today
-  );
-  const upcoming = calendarItems.filter(
-    (item) => !item.is_posted && item.due_date && parseDateOnly(item.due_date) >= today
-  );
+  const overdue = calendarItems.filter((item) => !item.is_posted && item.due_date && parseDateOnly(item.due_date) < today);
+  const upcoming = calendarItems.filter((item) => !item.is_posted && item.due_date && parseDateOnly(item.due_date) >= today);
   const completed = calendarItems.filter((item) => item.is_posted);
 
   const overdueGroups = groupByDate(overdue);
@@ -146,43 +169,40 @@ export default async function CalendarPage() {
   const completedGroups = groupByDate(completed);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Calendar</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Deadline awareness for deliverables across your campaigns.
-        </p>
-      </div>
+    <div className="page-enter space-y-6">
+      <PageHeader
+        title="Calendar"
+        description="Deadline intelligence for deliverables across your private campaign workspace."
+      />
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm text-[var(--muted)]">Overdue deliverables</p>
-          <p className="mt-1 text-2xl font-semibold">{overdue.length}</p>
-        </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm text-[var(--muted)]">Upcoming deliverables</p>
-          <p className="mt-1 text-2xl font-semibold">{upcoming.length}</p>
-        </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm text-[var(--muted)]">Completed deliverables</p>
-          <p className="mt-1 text-2xl font-semibold">{completed.length}</p>
-        </article>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Overdue" value={String(overdue.length)} accentColor="var(--status-overdue)" />
+        <StatCard label="Upcoming" value={String(upcoming.length)} accentColor="var(--accent)" />
+        <StatCard label="Completed" value={String(completed.length)} accentColor="var(--status-completed)" />
       </section>
 
-      <Section
+      <TimelineSection
         title="Overdue"
-        emptyText="No overdue deliverables."
+        emptyText="No overdue deliverables"
+        emptyDescription="Everything currently due has been handled on time."
         groups={overdueGroups}
+        variant="overdue"
       />
-      <Section
+
+      <TimelineSection
         title="Upcoming"
-        emptyText="No upcoming deliverables."
+        emptyText="No upcoming deliverables"
+        emptyDescription="No due dates scheduled right now."
         groups={upcomingGroups}
+        variant="upcoming"
       />
-      <Section
+
+      <TimelineSection
         title="Completed"
-        emptyText="No completed deliverables."
+        emptyText="No completed deliverables"
+        emptyDescription="Completed deliverables will appear here after posting."
         groups={completedGroups}
+        variant="completed"
       />
     </div>
   );

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup";
@@ -20,8 +22,12 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const title = mode === "login" ? "Log in" : "Create account";
-  const cta = mode === "login" ? "Log in" : "Sign up";
+  const title = mode === "login" ? "Welcome back" : "Create your workspace";
+  const subtitle =
+    mode === "login"
+      ? "Sign in to continue managing your campaigns."
+      : "Launch your private campaign operations workspace.";
+  const cta = mode === "login" ? "Sign in" : "Create account";
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,26 +36,17 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     try {
       if (mode === "login") {
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
+        const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) {
           setError(authError.message);
           return;
         }
-
         router.push("/dashboard");
         router.refresh();
         return;
       }
 
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password
-      });
-
+      const { error: signUpError } = await supabase.auth.signUp({ email, password });
       if (signUpError) {
         setError(signUpError.message);
         return;
@@ -63,67 +60,77 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <div className="mx-auto mt-24 w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--surface)] p-8">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="mt-2 text-sm text-[var(--muted)]">
-        Inflowr gives each user a private campaign workspace.
-      </p>
-
-      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-        <div>
-          <label className="mb-2 block text-sm font-medium" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-            className="w-full rounded-md border border-[var(--border)] px-3 py-2 outline-none ring-0 focus:border-[var(--primary)]"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium" htmlFor="password">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            minLength={8}
-            className="w-full rounded-md border border-[var(--border)] px-3 py-2 outline-none ring-0 focus:border-[var(--primary)]"
-          />
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+      <div className="w-full max-w-[420px] animate-fade-up">
+        <div className="mb-5 rounded-md border border-border-subtle bg-panel-soft/70 p-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-accent/35 bg-accent-soft text-accent">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold tracking-tight">Inflowr</p>
+              <p className="text-xs text-text-faint">Private campaign workspace</p>
+            </div>
+          </div>
         </div>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <div className="surface-panel rounded-lg p-6 sm:p-7">
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">{title}</h1>
+          <p className="mt-2 text-sm text-text-muted">{subtitle}</p>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-md bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
-          {isSubmitting ? "Please wait..." : cta}
-        </button>
-      </form>
+          <form className="mt-7 space-y-4" onSubmit={onSubmit}>
+            <Input
+              id="email"
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              placeholder="you@example.com"
+            />
+            <Input
+              id="password"
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={8}
+              placeholder="At least 8 characters"
+            />
 
-      {mode === "login" ? (
-        <p className="mt-4 text-sm text-[var(--muted)]">
-          No account?{" "}
-          <Link className="text-[var(--primary)]" href="/signup">
-            Sign up
-          </Link>
-        </p>
-      ) : (
-        <p className="mt-4 text-sm text-[var(--muted)]">
-          Already have an account?{" "}
-          <Link className="text-[var(--primary)]" href="/login">
-            Log in
-          </Link>
-        </p>
-      )}
+            {error ? (
+              <div className="rounded-sm border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>
+            ) : null}
+
+            <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
+              {isSubmitting ? "Please wait..." : cta}
+            </Button>
+          </form>
+
+          <p className="mt-5 border-t border-border-subtle pt-4 text-center text-sm text-text-muted">
+            {mode === "login" ? (
+              <>
+                Need an account?{" "}
+                <Link href="/signup" className="font-medium text-accent hover:text-accent-hover">
+                  Sign up
+                </Link>
+              </>
+            ) : (
+              <>
+                Already registered?{" "}
+                <Link href="/login" className="font-medium text-accent hover:text-accent-hover">
+                  Sign in
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

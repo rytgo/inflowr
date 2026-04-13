@@ -2,6 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { createCampaign, deleteInfluencer, updateInfluencer } from "@/app/(app)/actions";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Drawer } from "@/components/ui/drawer";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { Table, TableBody, TableCell, TableHead, TableRow, TableTh } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/campaign-logic";
 import { createClient } from "@/lib/supabase/server";
 
@@ -59,136 +67,142 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
     paidByCampaign.set(payment.campaign_id, current + Number(payment.amount));
   }
 
+  const totals = campaigns.reduce(
+    (acc, campaign) => {
+      const paid = paidByCampaign.get(campaign.id) ?? 0;
+      acc.totalValue += Number(campaign.total_value);
+      acc.totalPaid += paid;
+      return acc;
+    },
+    { totalValue: 0, totalPaid: 0 }
+  );
+
   return (
-    <div className="space-y-6">
-      <Link href="/influencers" className="text-sm text-[var(--primary)]">
-        Back to influencers
-      </Link>
+    <div className="page-enter space-y-6">
+      <PageHeader
+        title={influencer.name}
+        description="Influencer overview and campaign relationship details."
+        backHref="/influencers"
+        backLabel="Back to influencers"
+        action={
+          <Drawer triggerLabel="New campaign" title="Create campaign" description="Add a campaign under this influencer.">
+            <form action={createCampaign} className="grid grid-cols-1 gap-4">
+              <input type="hidden" name="influencer_id" value={influencer.id} />
+              <Input name="name" required placeholder="Campaign name" label="Campaign name" hint="Required" />
+              <Input name="total_value" type="number" step="0.01" min="0" defaultValue="0" label="Total value ($)" hint="Use 0 if unknown" />
+              <Input name="start_date" type="date" label="Start date" />
+              <Input name="end_date" type="date" label="End date" hint="Must be after start date" />
+              <Textarea name="notes" placeholder="Campaign notes..." label="Notes" />
+              <div>
+                <Button type="submit">Create campaign</Button>
+              </div>
+            </form>
+          </Drawer>
+        }
+      />
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h1 className="text-2xl font-semibold">Influencer details</h1>
-        <form action={updateInfluencer} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <input type="hidden" name="id" value={influencer.id} />
-          <input
-            name="name"
-            defaultValue={influencer.name}
-            required
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="platform"
-            defaultValue={influencer.platform}
-            required
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="profile_url"
-            defaultValue={influencer.profile_url ?? ""}
-            placeholder="Profile URL"
-            className="rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <textarea
-            name="notes"
-            defaultValue={influencer.notes ?? ""}
-            placeholder="Notes"
-            className="min-h-24 rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white"
-            >
-              Save changes
-            </button>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="page-enter stagger-1"><StatCard label="Platform" value={influencer.platform} /></div>
+        <div className="page-enter stagger-2"><StatCard label="Campaigns" value={String(campaigns.length)} /></div>
+        <div className="page-enter stagger-3"><StatCard label="Total value" value={formatCurrency(totals.totalValue)} /></div>
+        <div className="page-enter stagger-3"><StatCard label="Outstanding" value={formatCurrency(totals.totalValue - totals.totalPaid)} accentColor="var(--status-warning)" /></div>
+      </section>
+
+      <Card>
+        <CardHeader
+          title="Profile"
+          description="Read mode by default. Open edit drawer when updates are needed."
+          action={
+            <Drawer triggerLabel="Edit details" title="Edit influencer" description="Update profile and notes.">
+              <form action={updateInfluencer} className="grid grid-cols-1 gap-4">
+                <input type="hidden" name="id" value={influencer.id} />
+                <Input name="name" defaultValue={influencer.name} required label="Name" hint="Required" />
+                <Input name="platform" defaultValue={influencer.platform} required label="Platform" hint="Required" />
+                <Input name="profile_url" defaultValue={influencer.profile_url ?? ""} placeholder="https://..." label="Profile URL" hint="Optional, must start with https://" />
+                <Textarea name="notes" defaultValue={influencer.notes ?? ""} placeholder="Notes..." label="Notes" />
+                <div>
+                  <Button type="submit">Save changes</Button>
+                </div>
+              </form>
+            </Drawer>
+          }
+        />
+
+        <div className="grid grid-cols-1 gap-4 rounded-sm border border-border-subtle bg-panel-soft/50 p-4 md:grid-cols-2">
+          <div>
+            <p className="data-label">Name</p>
+            <p className="data-value mt-1">{influencer.name}</p>
           </div>
-        </form>
+          <div>
+            <p className="data-label">Platform</p>
+            <p className="data-value mt-1">{influencer.platform}</p>
+          </div>
+          <div className="md:col-span-2">
+            <p className="data-label">Profile URL</p>
+            {influencer.profile_url ? (
+              <a className="mt-1 inline-block font-medium text-accent hover:text-accent-hover" href={influencer.profile_url} target="_blank" rel="noreferrer">
+                {influencer.profile_url}
+              </a>
+            ) : (
+              <p className="mt-1 text-text-faint">--</p>
+            )}
+          </div>
+          <div className="md:col-span-2">
+            <p className="data-label">Notes</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{influencer.notes || "No notes"}</p>
+          </div>
+        </div>
+      </Card>
 
-        <form action={deleteInfluencer} className="mt-3">
-          <input type="hidden" name="id" value={influencer.id} />
-          <button type="submit" className="text-sm text-red-600">
-            Delete influencer (removes linked campaigns)
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-lg font-medium">Create campaign</h2>
-        <form action={createCampaign} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <input type="hidden" name="influencer_id" value={influencer.id} />
-          <input
-            name="name"
-            required
-            placeholder="Campaign name"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="total_value"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue="0"
-            placeholder="Total value"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="start_date"
-            type="date"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input name="end_date" type="date" className="rounded-md border border-[var(--border)] px-3 py-2" />
-          <textarea
-            name="notes"
-            placeholder="Campaign notes"
-            className="min-h-20 rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <button
-            type="submit"
-            className="w-fit rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white"
-          >
-            Add campaign
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-lg font-medium">Campaigns</h2>
+      <Card>
+        <CardHeader title="Campaigns" description="Current campaigns linked to this influencer." />
         {campaigns.length ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-[var(--muted)]">
-                  <th className="py-2 font-medium">Campaign</th>
-                  <th className="py-2 font-medium">Value</th>
-                  <th className="py-2 font-medium">Paid</th>
-                  <th className="py-2 font-medium">Remaining</th>
-                  <th className="py-2 font-medium">Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campaigns.map((campaign) => {
-                  const paid = paidByCampaign.get(campaign.id) ?? 0;
-                  const remaining = Number(campaign.total_value) - paid;
-                  return (
-                    <tr key={campaign.id} className="border-b border-[var(--border)]">
-                      <td className="py-3">{campaign.name}</td>
-                      <td className="py-3">{formatCurrency(Number(campaign.total_value))}</td>
-                      <td className="py-3">{formatCurrency(paid)}</td>
-                      <td className="py-3">{formatCurrency(remaining)}</td>
-                      <td className="py-3">
-                        <Link href={`/campaigns/${campaign.id}`} className="text-[var(--primary)]">
-                          Manage
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHead>
+              <TableTh>Campaign</TableTh>
+              <TableTh>Total value</TableTh>
+              <TableTh>Paid</TableTh>
+              <TableTh>Outstanding</TableTh>
+              <TableTh className="text-right">Actions</TableTh>
+            </TableHead>
+            <TableBody>
+              {campaigns.map((campaign) => {
+                const paid = paidByCampaign.get(campaign.id) ?? 0;
+                const remaining = Number(campaign.total_value) - paid;
+                return (
+                  <TableRow key={campaign.id}>
+                    <TableCell className="font-medium text-text-primary">{campaign.name}</TableCell>
+                    <TableCell className="font-mono text-xs">{formatCurrency(Number(campaign.total_value))}</TableCell>
+                    <TableCell className="font-mono text-xs">{formatCurrency(paid)}</TableCell>
+                    <TableCell className={`font-mono text-xs ${remaining > 0 ? "text-[var(--status-warning)]" : "text-text-secondary"}`}>
+                      {formatCurrency(remaining)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link href={`/campaigns/${campaign.id}`}>
+                        <Button variant="ghost" size="sm">
+                          Open
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         ) : (
-          <p className="mt-3 text-sm text-[var(--muted)]">No campaigns yet for this influencer.</p>
+          <EmptyState title="No campaigns yet" description="Create a campaign when this influencer is ready to go live." />
         )}
-      </section>
+      </Card>
+
+      <Card>
+        <CardHeader title="Danger zone" description="Deleting an influencer removes all related campaigns, deliverables, and payments." />
+        <form action={deleteInfluencer}>
+          <input type="hidden" name="id" value={influencer.id} />
+          <Button type="submit" variant="destructive" size="sm">
+            Delete influencer
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

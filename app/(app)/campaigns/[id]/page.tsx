@@ -11,7 +11,16 @@ import {
   updateDeliverable,
   updatePayment
 } from "@/app/(app)/actions";
+import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Drawer } from "@/components/ui/drawer";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input, Textarea } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { deriveCampaignStatus, formatCurrency, getNextScheduledDate } from "@/lib/campaign-logic";
+import { parseDateOnly } from "@/lib/date";
 import { createClient } from "@/lib/supabase/server";
 
 type CampaignDetailPageProps = {
@@ -19,6 +28,13 @@ type CampaignDetailPageProps = {
     id: string;
   };
 };
+
+function formatDate(value: string | null): string {
+  if (!value) return "--";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+    parseDateOnly(value)
+  );
+}
 
 export default async function CampaignDetailPage({ params }: CampaignDetailPageProps) {
   const supabase = createClient();
@@ -81,271 +97,223 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
   const deliverablesRemaining = deliverables.filter((item) => !item.is_posted).length;
 
   return (
-    <div className="space-y-6">
-      <Link href={`/influencers/${campaign.influencer_id}`} className="text-sm text-[var(--primary)]">
-        Back to influencer
-      </Link>
+    <div className="page-enter space-y-6">
+      <PageHeader
+        title={campaign.name}
+        description="Campaign command center with deliverable and payment operations."
+        backHref={`/influencers/${campaign.influencer_id}`}
+        backLabel="Back to influencer"
+        meta={<Badge variant={statusToBadgeVariant(status)}>{status}</Badge>}
+        action={
+          <Drawer triggerLabel="Edit campaign" title="Edit campaign" description="Update campaign metadata.">
+            <form action={updateCampaign} className="grid grid-cols-1 gap-4">
+              <input type="hidden" name="id" value={campaign.id} />
+              <Input name="name" defaultValue={campaign.name} required label="Campaign name" hint="Required" />
+              <Input name="total_value" type="number" min="0" step="0.01" defaultValue={Number(campaign.total_value)} label="Total value ($)" hint="Cannot be negative" />
+              <Input name="start_date" type="date" defaultValue={campaign.start_date ?? ""} label="Start date" />
+              <Input name="end_date" type="date" defaultValue={campaign.end_date ?? ""} label="End date" hint="Must be after start date" />
+              <Textarea name="notes" defaultValue={campaign.notes ?? ""} placeholder="Campaign notes..." label="Notes" />
+              <div>
+                <Button type="submit">Save campaign</Button>
+              </div>
+            </form>
+          </Drawer>
+        }
+      />
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h1 className="text-2xl font-semibold">Campaign details</h1>
-
-        <form action={updateCampaign} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <input type="hidden" name="id" value={campaign.id} />
-          <input
-            name="name"
-            defaultValue={campaign.name}
-            required
-            className="rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <input
-            name="total_value"
-            type="number"
-            min="0"
-            step="0.01"
-            defaultValue={Number(campaign.total_value)}
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="start_date"
-            type="date"
-            defaultValue={campaign.start_date ?? ""}
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="end_date"
-            type="date"
-            defaultValue={campaign.end_date ?? ""}
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <textarea
-            name="notes"
-            defaultValue={campaign.notes ?? ""}
-            className="min-h-24 rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-            placeholder="Campaign notes"
-          />
-          <button
-            type="submit"
-            className="w-fit rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white"
-          >
-            Save campaign
-          </button>
-        </form>
-
-        <form action={deleteCampaign} className="mt-3">
-          <input type="hidden" name="id" value={campaign.id} />
-          <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-          <button type="submit" className="text-sm text-red-600">
-            Delete campaign
-          </button>
-        </form>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="page-enter stagger-1"><StatCard label="Status" value={status} accentColor={status === "Overdue" ? "var(--status-overdue)" : status === "Completed" ? "var(--status-completed)" : "var(--status-active)"} /></div>
+        <div className="page-enter stagger-2"><StatCard label="Open deliverables" value={String(deliverablesRemaining)} accentColor="var(--accent)" hint={`Next: ${formatDate(nextDate)}`} /></div>
+        <div className="page-enter stagger-3"><StatCard label="Paid" value={formatCurrency(totalPaid)} accentColor="var(--status-active)" /></div>
+        <div className="page-enter stagger-3"><StatCard label="Outstanding" value={formatCurrency(remaining)} accentColor={remaining > 0 ? "var(--status-warning)" : "var(--status-completed)"} /></div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm text-[var(--muted)]">Status</p>
-          <p className="mt-1 text-xl font-semibold">{status}</p>
-        </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm text-[var(--muted)]">Deliverables remaining</p>
-          <p className="mt-1 text-xl font-semibold">{deliverablesRemaining}</p>
-        </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm text-[var(--muted)]">Total paid</p>
-          <p className="mt-1 text-xl font-semibold">{formatCurrency(totalPaid)}</p>
-        </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-sm text-[var(--muted)]">Remaining balance</p>
-          <p className="mt-1 text-xl font-semibold">{formatCurrency(remaining)}</p>
-        </article>
-      </section>
+      <Card>
+        <CardHeader title="Campaign details" description="Current campaign values in read mode." />
+        <div className="grid grid-cols-1 gap-4 rounded-sm border border-border-subtle bg-panel-soft/50 p-4 md:grid-cols-2">
+          <div>
+            <p className="data-label">Campaign name</p>
+            <p className="data-value mt-1">{campaign.name}</p>
+          </div>
+          <div>
+            <p className="data-label">Total value</p>
+            <p className="data-value mt-1 font-mono text-sm">{formatCurrency(Number(campaign.total_value))}</p>
+          </div>
+          <div>
+            <p className="data-label">Start date</p>
+            <p className="data-value mt-1">{formatDate(campaign.start_date)}</p>
+          </div>
+          <div>
+            <p className="data-label">End date</p>
+            <p className="data-value mt-1">{formatDate(campaign.end_date)}</p>
+          </div>
+          <div className="md:col-span-2">
+            <p className="data-label">Notes</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{campaign.notes || "No notes"}</p>
+          </div>
+        </div>
+      </Card>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-lg font-medium">Deliverables</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Next scheduled posting date: {nextDate ?? "-"}
-        </p>
-
-        <form action={createDeliverable} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-          <input type="hidden" name="campaign_id" value={campaign.id} />
-          <input
-            name="title"
-            required
-            placeholder="Deliverable title"
-            className="rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <input name="due_date" type="date" className="rounded-md border border-[var(--border)] px-3 py-2" />
-          <input
-            name="live_url"
-            placeholder="Live URL (optional)"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <button
-            type="submit"
-            className="w-fit rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white"
-          >
-            Add deliverable
-          </button>
-        </form>
+      <Card id="deliverables" className="scroll-mt-24">
+        <CardHeader
+          title="Deliverables"
+          description={`${deliverablesRemaining} open of ${deliverables.length} total`}
+          action={
+            <Drawer triggerLabel="New deliverable" title="Create deliverable" description="Add a deliverable to this campaign.">
+              <form action={createDeliverable} className="grid grid-cols-1 gap-4">
+                <input type="hidden" name="campaign_id" value={campaign.id} />
+                <Input name="title" required placeholder="Deliverable title" label="Title" hint="Required" />
+                <Input name="due_date" type="date" label="Due date" />
+                <Input name="live_url" placeholder="https://..." label="Live URL" hint="Optional" />
+                <div>
+                  <Button type="submit">Create deliverable</Button>
+                </div>
+              </form>
+            </Drawer>
+          }
+        />
 
         {deliverables.length ? (
-          <div className="mt-5 space-y-3">
+          <div className="space-y-3">
             {deliverables.map((deliverable) => (
-              <div
-                key={deliverable.id}
-                className="rounded-lg border border-[var(--border)] bg-white p-4"
-              >
-                <form action={updateDeliverable} className="grid grid-cols-1 gap-3 md:grid-cols-5">
-                  <input type="hidden" name="id" value={deliverable.id} />
-                  <input type="hidden" name="campaign_id" value={campaign.id} />
-                  <input
-                    name="title"
-                    required
-                    defaultValue={deliverable.title}
-                    className="rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-                  />
-                  <input
-                    name="due_date"
-                    type="date"
-                    defaultValue={deliverable.due_date ?? ""}
-                    className="rounded-md border border-[var(--border)] px-3 py-2"
-                  />
-                  <input
-                    name="live_url"
-                    defaultValue={deliverable.live_url ?? ""}
-                    placeholder="Live URL"
-                    className="rounded-md border border-[var(--border)] px-3 py-2"
-                  />
-                  <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                    <input
-                      type="checkbox"
-                      name="is_posted"
-                      defaultChecked={deliverable.is_posted}
-                    />
-                    Mark as posted
-                  </label>
-                  <div className="flex items-center gap-3 md:col-span-5">
-                    <button
-                      type="submit"
-                      className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
-                    >
-                      Save deliverable
-                    </button>
-                    <span className="text-xs text-[var(--muted)]">
-                      {deliverable.is_posted
-                        ? `Posted ${deliverable.posted_at ? `(${deliverable.posted_at.slice(0, 10)})` : ""}`
-                        : "Not posted"}
-                    </span>
+              <div key={deliverable.id} className="rounded-sm border border-border-subtle bg-panel-soft/45 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-text-primary">{deliverable.title}</p>
+                    <p className="mt-1 text-xs text-text-faint">Due {formatDate(deliverable.due_date)}</p>
                   </div>
-                </form>
-
-                <form action={deleteDeliverable} className="mt-2">
-                  <input type="hidden" name="id" value={deliverable.id} />
-                  <input type="hidden" name="campaign_id" value={campaign.id} />
-                  <button type="submit" className="text-sm text-red-600">
-                    Delete deliverable
-                  </button>
-                </form>
+                  <div className="flex items-center gap-2">
+                    {deliverable.is_posted ? <Badge variant="completed">Posted</Badge> : <Badge variant="active">Pending</Badge>}
+                    {deliverable.live_url ? (
+                      <a href={deliverable.live_url} target="_blank" rel="noreferrer" className="text-xs font-medium text-accent hover:text-accent-hover">
+                        Open link
+                      </a>
+                    ) : null}
+                    <Drawer triggerLabel="Edit" triggerVariant="ghost" size="sm" title="Edit deliverable" description="Update title, due date, URL, and status.">
+                      <form action={updateDeliverable} className="grid grid-cols-1 gap-4">
+                        <input type="hidden" name="id" value={deliverable.id} />
+                        <input type="hidden" name="campaign_id" value={campaign.id} />
+                        <Input name="title" required defaultValue={deliverable.title} label="Title" hint="Required" />
+                        <Input name="due_date" type="date" defaultValue={deliverable.due_date ?? ""} label="Due date" />
+                        <Input name="live_url" defaultValue={deliverable.live_url ?? ""} placeholder="https://..." label="Live URL" />
+                        <label className="flex items-center gap-2 text-sm text-text-secondary">
+                          <input type="checkbox" name="is_posted" defaultChecked={deliverable.is_posted} className="h-4 w-4 accent-accent" />
+                          Mark as posted
+                        </label>
+                        <div>
+                          <Button type="submit">Save deliverable</Button>
+                        </div>
+                      </form>
+                    </Drawer>
+                  </div>
+                </div>
+                <div className="mt-3 border-t border-border-subtle pt-3">
+                  <form action={deleteDeliverable}>
+                    <input type="hidden" name="id" value={deliverable.id} />
+                    <input type="hidden" name="campaign_id" value={campaign.id} />
+                    <Button type="submit" variant="ghost" size="sm" className="text-danger hover:text-danger">
+                      Delete deliverable
+                    </Button>
+                  </form>
+                </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="mt-4 text-sm text-[var(--muted)]">No deliverables yet.</p>
+          <EmptyState title="No deliverables yet" description="Add deliverables to start execution tracking." />
         )}
-      </section>
+      </Card>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <h2 className="text-lg font-medium">Payments</h2>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          Log payments to keep total paid and remaining balance accurate.
-        </p>
-
-        <form action={createPayment} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
-          <input type="hidden" name="campaign_id" value={campaign.id} />
-          <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-          <input
-            name="amount"
-            required
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Amount"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="payment_date"
-            type="date"
-            className="rounded-md border border-[var(--border)] px-3 py-2"
-          />
-          <input
-            name="note"
-            placeholder="Payment note (optional)"
-            className="rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-          />
-          <button
-            type="submit"
-            className="w-fit rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white"
-          >
-            Log payment
-          </button>
-        </form>
+      <Card id="payments" className="scroll-mt-24">
+        <CardHeader
+          title="Payments"
+          description="Payment logs keep paid and remaining balances accurate."
+          action={
+            <Drawer triggerLabel="Log payment" title="Log payment" description="Add a payment record for this campaign.">
+              <form action={createPayment} className="grid grid-cols-1 gap-4">
+                <input type="hidden" name="campaign_id" value={campaign.id} />
+                <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+                <Input name="amount" required type="number" min="0" step="0.01" placeholder="0.00" label="Amount ($)" hint="Cannot be negative" />
+                <Input name="payment_date" type="date" label="Date" />
+                <Input name="note" placeholder="Payment note" label="Note" />
+                <div>
+                  <Button type="submit">Log payment</Button>
+                </div>
+              </form>
+            </Drawer>
+          }
+        />
 
         {payments.length ? (
-          <div className="mt-5 space-y-3">
+          <div className="space-y-3">
             {payments.map((payment) => (
-              <div key={payment.id} className="rounded-lg border border-[var(--border)] bg-white p-4">
-                <form action={updatePayment} className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                  <input type="hidden" name="id" value={payment.id} />
-                  <input type="hidden" name="campaign_id" value={campaign.id} />
-                  <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-                  <input
-                    name="amount"
-                    required
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue={Number(payment.amount)}
-                    className="rounded-md border border-[var(--border)] px-3 py-2"
-                  />
-                  <input
-                    name="payment_date"
-                    type="date"
-                    defaultValue={payment.payment_date}
-                    className="rounded-md border border-[var(--border)] px-3 py-2"
-                  />
-                  <input
-                    name="note"
-                    defaultValue={payment.note ?? ""}
-                    placeholder="Payment note"
-                    className="rounded-md border border-[var(--border)] px-3 py-2 md:col-span-2"
-                  />
-                  <div className="flex items-center gap-3 md:col-span-4">
-                    <button
-                      type="submit"
-                      className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
-                    >
-                      Save payment
-                    </button>
-                    <span className="text-xs text-[var(--muted)]">
-                      Logged: {payment.payment_date} - {formatCurrency(Number(payment.amount))}
-                    </span>
+              <div key={payment.id} className="rounded-sm border border-border-subtle bg-panel-soft/45 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-sm font-semibold text-text-primary">{formatCurrency(Number(payment.amount))}</p>
+                    <p className="mt-1 text-xs text-text-faint">{formatDate(payment.payment_date)}</p>
+                    {payment.note ? <p className="mt-1 text-sm text-text-secondary">{payment.note}</p> : null}
                   </div>
-                </form>
-
-                <form action={deletePayment} className="mt-2">
-                  <input type="hidden" name="id" value={payment.id} />
-                  <input type="hidden" name="campaign_id" value={campaign.id} />
-                  <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-                  <button type="submit" className="text-sm text-red-600">
-                    Delete payment
-                  </button>
-                </form>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="active">Logged</Badge>
+                    <Drawer triggerLabel="Edit" triggerVariant="ghost" size="sm" title="Edit payment" description="Update amount, date, and note.">
+                      <form action={updatePayment} className="grid grid-cols-1 gap-4">
+                        <input type="hidden" name="id" value={payment.id} />
+                        <input type="hidden" name="campaign_id" value={campaign.id} />
+                        <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+                        <Input name="amount" required type="number" min="0" step="0.01" defaultValue={Number(payment.amount)} label="Amount" hint="Cannot be negative" />
+                        <Input name="payment_date" type="date" defaultValue={payment.payment_date} label="Date" />
+                        <Input name="note" defaultValue={payment.note ?? ""} placeholder="Payment note" label="Note" />
+                        <div>
+                          <Button type="submit">Save payment</Button>
+                        </div>
+                      </form>
+                    </Drawer>
+                  </div>
+                </div>
+                <div className="mt-3 border-t border-border-subtle pt-3">
+                  <form action={deletePayment}>
+                    <input type="hidden" name="id" value={payment.id} />
+                    <input type="hidden" name="campaign_id" value={campaign.id} />
+                    <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+                    <Button type="submit" variant="ghost" size="sm" className="text-danger hover:text-danger">
+                      Delete payment
+                    </Button>
+                  </form>
+                </div>
               </div>
             ))}
           </div>
         ) : (
-          <p className="mt-4 text-sm text-[var(--muted)]">No payments logged yet.</p>
+          <EmptyState title="No payments logged" description="Log a payment when funds are released for this campaign." />
         )}
-      </section>
+      </Card>
+
+      <Card>
+        <CardHeader title="Danger zone" description="Deleting this campaign removes its deliverables and payments." />
+        <form action={deleteCampaign}>
+          <input type="hidden" name="id" value={campaign.id} />
+          <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+          <Button type="submit" variant="destructive" size="sm">
+            Delete campaign
+          </Button>
+        </form>
+      </Card>
+
+      <Card>
+        <CardHeader title="Quick navigation" />
+        <div className="flex flex-wrap gap-2">
+          <a href="#deliverables">
+            <Button variant="ghost" size="sm">Deliverables</Button>
+          </a>
+          <a href="#payments">
+            <Button variant="ghost" size="sm">Payments</Button>
+          </a>
+          <Link href={`/influencers/${campaign.influencer_id}`}>
+            <Button variant="ghost" size="sm">Influencer page</Button>
+          </Link>
+        </div>
+      </Card>
     </div>
   );
 }
