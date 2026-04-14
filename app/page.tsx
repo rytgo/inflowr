@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-
+import { LandingPage } from "@/components/landing-page";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function HomePage() {
@@ -8,9 +7,5 @@ export default async function HomePage() {
     data: { user }
   } = await supabase.auth.getUser();
 
-  if (user) {
-    redirect("/dashboard");
-  }
-
-  redirect("/login");
+  return <LandingPage isAuthenticated={Boolean(user)} userEmail={user?.email ?? null} />;
 }

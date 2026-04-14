@@ -227,7 +227,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         description="Real-time operational overview across your private campaigns."
         action={
           <Link href="/influencers">
-            <Button size="sm">Manage influencers</Button>
+            <Button size="sm" variant="secondary">Manage influencers</Button>
           </Link>
         }
       />
@@ -266,7 +266,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <option value="created_desc">Newest campaigns</option>
           </Select>
           <div className="flex items-end gap-2 xl:col-span-6">
-            <Button type="submit" size="sm">
+            <Button type="submit" size="sm" variant="secondary">
               Apply filters
             </Button>
             <Link href="/dashboard">
