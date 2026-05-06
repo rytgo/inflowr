@@ -29,14 +29,20 @@ export function AuthForm({ mode }: AuthFormProps) {
       : "Launch your private campaign operations workspace.";
   const cta = mode === "login" ? "Sign in" : "Create account";
 
+  function isDuplicateSignUp(user: { identities?: unknown[] } | null) {
+    return !!user && Array.isArray(user.identities) && user.identities.length === 0;
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+
       if (mode === "login") {
-        const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: authError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
         if (authError) {
           setError(authError.message);
           return;
@@ -46,9 +52,23 @@ export function AuthForm({ mode }: AuthFormProps) {
         return;
       }
 
-      const { error: signUpError } = await supabase.auth.signUp({ email, password });
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password
+      });
       if (signUpError) {
         setError(signUpError.message);
+        return;
+      }
+
+      if (isDuplicateSignUp(signUpData.user)) {
+        setError("An account with this email already exists. Please sign in.");
+        return;
+      }
+
+      if (!signUpData.session) {
+        router.push("/login");
+        router.refresh();
         return;
       }
 
