@@ -86,21 +86,6 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
         description="Influencer overview and campaign relationship details."
         backHref="/influencers"
         backLabel="Back to influencers"
-        action={
-          <Drawer triggerLabel="New campaign" title="Create campaign" description="Add a campaign under this influencer.">
-            <SmoothForm action={createCampaignSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
-              <input type="hidden" name="influencer_id" value={influencer.id} />
-              <Input name="name" required placeholder="Campaign name" label="Campaign name" hint="Required" />
-              <Input name="total_value" type="number" step="0.01" min="0" defaultValue="0" label="Total value ($)" hint="Use 0 if unknown" />
-              <Input name="start_date" type="date" label="Start date" />
-              <Input name="end_date" type="date" label="End date" hint="Must be after start date" />
-              <Textarea name="notes" placeholder="Campaign notes..." label="Notes" />
-              <div>
-                <Button type="submit">Create campaign</Button>
-              </div>
-            </SmoothForm>
-          </Drawer>
-        }
       />
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -157,7 +142,31 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
       </Card>
 
       <Card>
-        <CardHeader title="Campaigns" description="Current campaigns linked to this influencer." />
+        <CardHeader
+          title="Campaigns"
+          description="Current campaigns linked to this influencer."
+          action={
+            <Drawer
+              triggerLabel="New campaign"
+              triggerVariant="accent"
+              size="md"
+              title="Create campaign"
+              description="Add a campaign under this influencer."
+            >
+              <SmoothForm action={createCampaignSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
+                <input type="hidden" name="influencer_id" value={influencer.id} />
+                <Input name="name" required placeholder="Campaign name" label="Campaign name" hint="Required" />
+                <Input name="total_value" type="number" step="0.01" min="0" defaultValue="0" label="Total value ($)" hint="Use 0 if unknown" />
+                <Input name="start_date" type="date" label="Start date" />
+                <Input name="end_date" type="date" label="End date" hint="Must be after start date" />
+                <Textarea name="notes" placeholder="Campaign notes..." label="Notes" />
+                <div>
+                  <Button type="submit">Create campaign</Button>
+                </div>
+              </SmoothForm>
+            </Drawer>
+          }
+        />
         {campaigns.length ? (
           <Table>
             <TableHead>

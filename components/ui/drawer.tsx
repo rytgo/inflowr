@@ -10,7 +10,7 @@ type DrawerProps = {
   title: string;
   description?: string;
   children: ReactNode;
-  triggerVariant?: "primary" | "secondary" | "ghost";
+  triggerVariant?: "primary" | "secondary" | "accent" | "ghost";
   size?: "sm" | "md";
 };
 

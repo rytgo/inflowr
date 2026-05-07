@@ -1,6 +1,6 @@
 import { ButtonHTMLAttributes, ReactNode } from "react";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "destructive";
+type ButtonVariant = "primary" | "secondary" | "accent" | "ghost" | "destructive";
 type ButtonSize = "sm" | "md" | "lg";
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -8,6 +8,8 @@ const variantStyles: Record<ButtonVariant, string> = {
     "border border-border-strong bg-panel-strong text-text-primary shadow-panel hover:border-[#3a3a40] hover:bg-[#17171a]",
   secondary:
     "border border-border bg-panel-strong text-text-secondary shadow-panel hover:border-border-strong hover:text-text-primary",
+  accent:
+    "border border-accent/80 bg-accent text-black shadow-panel hover:border-accent-hover hover:bg-accent-hover",
   ghost:
     "border border-transparent bg-transparent text-text-muted hover:border-border-subtle hover:bg-panel-soft hover:text-text-primary",
   destructive:

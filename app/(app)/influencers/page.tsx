@@ -39,19 +39,6 @@ export default async function InfluencersPage() {
       <PageHeader
         title="Influencers"
         description="Operate your creator roster with clean records and campaign links."
-        action={
-          <Drawer triggerLabel="New influencer" title="Create influencer" description="Add a creator to your private workspace.">
-            <SmoothForm action={createInfluencerSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
-              <Input name="name" required placeholder="Influencer name" label="Name" hint="Required" />
-              <Input name="platform" required placeholder="Instagram, TikTok..." label="Platform" hint="Required" />
-              <Input name="profile_url" placeholder="https://..." label="Profile URL" hint="Optional, must start with https://" />
-              <Textarea name="notes" placeholder="Any notes about this influencer..." label="Notes" hint="Optional" />
-              <div>
-                <Button type="submit">Create influencer</Button>
-              </div>
-            </SmoothForm>
-          </Drawer>
-        }
       />
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -61,7 +48,29 @@ export default async function InfluencersPage() {
       </section>
 
       <Card>
-        <CardHeader title="Directory" description="Open any influencer to view campaigns, balances, and timeline context." />
+        <CardHeader
+          title="Directory"
+          description="Open any influencer to view campaigns, balances, and timeline context."
+          action={
+            <Drawer
+              triggerLabel="New influencer"
+              triggerVariant="accent"
+              size="md"
+              title="Create influencer"
+              description="Add a creator to your private workspace."
+            >
+              <SmoothForm action={createInfluencerSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
+                <Input name="name" required placeholder="Influencer name" label="Name" hint="Required" />
+                <Input name="platform" required placeholder="Instagram, TikTok..." label="Platform" hint="Required" />
+                <Input name="profile_url" placeholder="https://..." label="Profile URL" hint="Optional, must start with https://" />
+                <Textarea name="notes" placeholder="Any notes about this influencer..." label="Notes" hint="Optional" />
+                <div>
+                  <Button type="submit">Create influencer</Button>
+                </div>
+              </SmoothForm>
+            </Drawer>
+          }
+        />
 
         {influencers.length ? (
           <Table>
