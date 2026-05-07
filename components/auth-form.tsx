@@ -20,6 +20,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const title = mode === "login" ? "Welcome back" : "Create your workspace";
@@ -36,6 +37,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setSuccess(null);
     setIsSubmitting(true);
 
     try {
@@ -54,7 +56,10 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: normalizedEmail,
-        password
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`
+        }
       });
       if (signUpError) {
         setError(signUpError.message);
@@ -67,8 +72,8 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
 
       if (!signUpData.session) {
-        router.push("/login");
-        router.refresh();
+        setPassword("");
+        setSuccess("Success. Please check your email to verify your account before signing in.");
         return;
       }
 
@@ -82,18 +87,24 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-8">
       <div className="w-full max-w-[420px] animate-fade-up">
-        <div className="mb-5 rounded-md border border-border-subtle bg-panel-soft/70 p-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-accent/35 bg-accent-soft text-accent">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold tracking-tight">Inflowr</p>
-              <p className="text-xs text-text-faint">Private campaign workspace</p>
+        <div className="mb-5 space-y-3">
+          <Link href="/" className="inline-flex text-sm font-medium text-text-muted hover:text-text-primary">
+            Back to home
+          </Link>
+
+          <div className="rounded-md border border-border-subtle bg-panel-soft/70 p-4">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-accent/35 bg-accent-soft text-accent">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold tracking-tight">Inflowr</p>
+                <p className="text-xs text-text-faint">Private campaign workspace</p>
+              </div>
             </div>
           </div>
         </div>
@@ -125,6 +136,12 @@ export function AuthForm({ mode }: AuthFormProps) {
 
             {error ? (
               <div className="rounded-sm border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</div>
+            ) : null}
+
+            {success ? (
+              <div className="rounded-sm border border-[var(--status-active)]/30 bg-[var(--status-active-soft)] px-3 py-2 text-sm text-[var(--status-active)]">
+                {success}
+              </div>
             ) : null}
 
             <Button type="submit" disabled={isSubmitting} className="w-full" size="lg">
