@@ -63,6 +63,8 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
     notFound();
   }
 
+  // Payments are campaign-owned, so total them once and reuse the map for stats
+  // and the campaigns table.
   const paidByCampaign = new Map<string, number>();
   for (const payment of payments) {
     const current = paidByCampaign.get(payment.campaign_id) ?? 0;

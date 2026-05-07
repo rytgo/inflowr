@@ -90,6 +90,8 @@ function buildCalendarDays(visibleMonth: Date, itemsByDate: Map<string, Calendar
   const gridStart = new Date(monthStart);
   gridStart.setDate(monthStart.getDate() - monthStart.getDay());
 
+  // Always render six weeks so the grid height stays stable as users page
+  // between months.
   return Array.from({ length: 42 }, (_, index) => {
     const date = new Date(gridStart);
     date.setDate(gridStart.getDate() + index);
@@ -175,6 +177,8 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const campaignMap = new Map(campaigns.map((item) => [item.id, item]));
   const influencerMap = new Map(influencers.map((item) => [item.id, item]));
 
+  // Calendar entries are deliverable-first because due dates live on deliverables;
+  // campaign and influencer names are added for scanability.
   const calendarItems: CalendarItem[] = deliverables
     .filter((item): item is typeof item & { due_date: string } => Boolean(item.due_date))
     .map((item) => {
@@ -207,6 +211,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   }
 
   for (const items of itemsByDate.values()) {
+    // Put unresolved risk first inside crowded day cells.
     items.sort((a, b) => {
       const stateOrder = { overdue: 0, upcoming: 1, completed: 2 };
       return stateOrder[getItemState(a, today)] - stateOrder[getItemState(b, today)];

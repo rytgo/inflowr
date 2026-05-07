@@ -30,6 +30,8 @@ export function SmoothForm({ action, children, className = "", resetOnSuccess = 
             formRef.current?.reset();
           }
 
+          // Drawers and confirm dialogs listen for this shared event so forms
+          // can close their overlay without knowing which component owns it.
           window.dispatchEvent(new Event("inflowr:close-overlays"));
           router.refresh();
         })

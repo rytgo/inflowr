@@ -20,6 +20,8 @@ export function DeliverablePostedButton({ campaignId, deliverableId, isPosted }:
 
   function onToggle() {
     const nextPosted = !posted;
+    // Optimistic UI keeps this common action feeling instant; failures roll the
+    // button back and leave the user on the same page.
     setPosted(nextPosted);
     setError(null);
 

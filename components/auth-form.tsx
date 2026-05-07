@@ -31,6 +31,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const cta = mode === "login" ? "Sign in" : "Create account";
 
   function isDuplicateSignUp(user: { identities?: unknown[] } | null) {
+    // Supabase returns a user with no identities for an email that already exists.
     return !!user && Array.isArray(user.identities) && user.identities.length === 0;
   }
 

@@ -111,6 +111,8 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
   const deliverablesRemaining = deliverables.filter((item) => !item.is_posted).length;
   const today = todayDateOnly();
 
+  // The timeline blends operational deadlines with money movement so a manager
+  // can read the campaign history without jumping between sections.
   const timelineItems: TimelineItem[] = [
     ...deliverables
       .filter((deliverable) => deliverable.due_date)

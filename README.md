@@ -1,18 +1,20 @@
 # Inflowr
 
-Inflowr is a private campaign operations dashboard for influencer / UGC managers.
+Inflowr is a private campaign operations dashboard for influencer and UGC managers.
 
-Core rule: one authenticated user has one private workspace. No orgs, no teams, no shared workspaces.
+One authenticated user has one private workspace. The project currently has no orgs, no teams, no shared workspaces.
 
 ## Stack
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
 - Supabase Auth + Postgres + RLS
+- Vercel hosting
 
-## Implemented Foundation
+## Current App
+- Public landing page at `/`
 - Email/password auth pages (`/login`, `/signup`)
-- Protected app structure with authenticated layout
+- Supabase session refresh middleware and protected app layout
 - Base app shell + navigation (`/dashboard`, `/influencers`, `/calendar`)
 - Supabase schema for `influencers`, `campaigns`, `deliverables`, `payments`
 - Row-level security policies for strict per-user ownership
@@ -23,7 +25,18 @@ Core rule: one authenticated user has one private workspace. No orgs, no teams, 
 - Dashboard table wired to real campaign data with derived status and balances
 - Calendar page connected to deliverable due dates (overdue, upcoming, completed)
 - Dashboard filters/search/sort (query, status, due soon, outstanding, ordering)
-- Business-logic hardening pass (date-only consistency, mutation validation, revalidation consistency)
+- Smooth drawer forms, confirm dialogs, flash messages, and optimistic posted-state updates
+- Shared business logic for campaign status, next due date, date-only handling, and currency formatting
+
+## Key Routes
+- `/` - landing page
+- `/login` - sign in
+- `/signup` - account creation
+- `/dashboard` - campaign operations overview
+- `/influencers` - influencer directory
+- `/influencers/[id]` - influencer profile and linked campaigns
+- `/campaigns/[id]` - campaign detail, deliverables, payments, timeline
+- `/calendar` - deliverable deadline calendar
 
 ## Local Setup
 1. Install deps:
@@ -43,5 +56,13 @@ SUPABASE_SECRET_KEY=...
 npm run dev
 ```
 
-## Next MVP Steps
-1. Future UI revamp (non-blocking, logic layer is already modular)
+## Deployment
+The project is hosted on Vercel. The Vercel project should use the same Supabase environment variables:
+
+## Scripts
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```

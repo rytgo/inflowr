@@ -130,6 +130,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const deliverablesByCampaign = new Map<string, typeof deliverables>();
   const paidByCampaign = new Map<string, number>();
 
+  // Keep the dashboard query simple for the MVP and join the small per-user
+  // result sets in memory. RLS still limits every table read to the signed-in user.
   for (const item of deliverables) {
     const bucket = deliverablesByCampaign.get(item.campaign_id) ?? [];
     bucket.push(item);
@@ -179,6 +181,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const outstandingFilter = getParam(searchParams?.outstanding, "all");
   const sortFilter = getParam(searchParams?.sort, "next_date_asc");
 
+  // Filters are URL-backed so the table state survives refreshes and links cleanly.
   const filteredRows = rows.filter((row) => {
     const matchesQuery =
       !query ||

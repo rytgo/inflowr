@@ -1,5 +1,6 @@
 create extension if not exists "pgcrypto";
 
+-- Keeps updated_at reliable without pushing timestamp bookkeeping into actions.
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -63,6 +64,7 @@ alter table public.campaigns alter column user_id set default auth.uid();
 alter table public.deliverables alter column user_id set default auth.uid();
 alter table public.payments alter column user_id set default auth.uid();
 
+-- Per-user indexes keep the private workspace reads fast as a single account grows.
 create index if not exists idx_influencers_user_id on public.influencers (user_id);
 create index if not exists idx_campaigns_user_id on public.campaigns (user_id);
 create index if not exists idx_campaigns_influencer_id on public.campaigns (influencer_id);
@@ -97,6 +99,7 @@ alter table public.campaigns enable row level security;
 alter table public.deliverables enable row level security;
 alter table public.payments enable row level security;
 
+-- Every policy enforces the product rule that records belong to exactly one user.
 drop policy if exists "influencers_select_own" on public.influencers;
 create policy "influencers_select_own" on public.influencers
 for select using (auth.uid() = user_id);
@@ -122,6 +125,7 @@ create policy "campaigns_insert_own" on public.campaigns
 for insert with check (
   auth.uid() = user_id
   and exists (
+    -- A campaign can only attach to an influencer from the same private workspace.
     select 1 from public.influencers i
     where i.id = influencer_id and i.user_id = auth.uid()
   )
@@ -150,6 +154,7 @@ create policy "deliverables_insert_own" on public.deliverables
 for insert with check (
   auth.uid() = user_id
   and exists (
+    -- Child records are checked against their parent to prevent cross-user links.
     select 1 from public.campaigns c
     where c.id = campaign_id and c.user_id = auth.uid()
   )

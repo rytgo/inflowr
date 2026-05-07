@@ -38,6 +38,7 @@ function getNullableUrl(formData: FormData, key: string): string | null {
   if (!value) return null;
 
   try {
+    // Store normalized absolute URLs and quietly ignore unsupported protocols.
     const parsed = new URL(value);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return null;
@@ -49,6 +50,8 @@ function getNullableUrl(formData: FormData, key: string): string | null {
 }
 
 function isNextRedirect(error: unknown): boolean {
+  // next/navigation implements redirect() by throwing; action error handling must
+  // let that control flow pass through untouched.
   return Boolean(
     error &&
       typeof error === "object" &&
@@ -95,6 +98,8 @@ async function ensureAuthenticated() {
 }
 
 function revalidateCoreViews() {
+  // Dashboard and calendar are aggregate views, so most writes need both caches
+  // refreshed even when the user is editing a detail page.
   revalidatePath("/dashboard");
   revalidatePath("/calendar");
 }
@@ -488,6 +493,7 @@ export async function updateDeliverable(formData: FormData) {
       .eq("id", id)
       .single();
 
+    // Preserve the original posted timestamp while the item remains posted.
     const isPosted = formData.has("is_posted") ? formData.get("is_posted") === "on" : Boolean(existing?.is_posted);
     const postedAt = isPosted
       ? existing?.is_posted
@@ -531,6 +537,8 @@ export async function updateDeliverableSmooth(formData: FormData) {
     .eq("id", id)
     .single();
 
+  // Smooth edit forms change deliverable metadata only; posted state is toggled
+  // by DeliverablePostedButton so the UI can update optimistically.
   const isPosted = Boolean(existing?.is_posted);
 
   await assertNoError(

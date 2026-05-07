@@ -7,6 +7,8 @@ import { Database } from "@/types/database";
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // Supabase may rotate auth cookies during getUser(); mirror those changes onto
+  // both the incoming request and outgoing response so Server Components see them.
   const supabase = createServerClient<Database>(env.supabaseUrl!, env.supabaseAnonKey!, {
     cookies: {
       get(name: string) {

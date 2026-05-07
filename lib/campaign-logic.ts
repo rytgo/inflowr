@@ -7,6 +7,8 @@ type DeliverableState = {
 
 export type CampaignStatus = "Active" | "Overdue" | "Completed";
 
+// Campaign status is intentionally derived, not stored, so every view stays in sync
+// after deliverables are edited or marked posted.
 export function deriveCampaignStatus(deliverables: DeliverableState[]): CampaignStatus {
   if (deliverables.length === 0) {
     return "Active";
@@ -31,6 +33,8 @@ export function deriveCampaignStatus(deliverables: DeliverableState[]): Campaign
 export function getNextScheduledDate(deliverables: DeliverableState[]): string | null {
   const today = todayDateOnly();
 
+  // Only incomplete future deliverables count as "next"; overdue work is shown
+  // through status/backlog surfaces instead of this forward-looking date.
   const upcoming = deliverables
     .filter((item) => !item.is_posted && item.due_date)
     .map((item) => parseDateOnly(item.due_date as string))

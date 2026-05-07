@@ -1,5 +1,7 @@
 export function parseDateOnly(value: string): Date {
   const [year, month, day] = value.split("-").map(Number);
+  // Dates from Postgres date columns and HTML date inputs are calendar days,
+  // so keep them at local midnight instead of parsing through UTC.
   return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
