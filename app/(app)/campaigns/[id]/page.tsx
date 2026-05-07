@@ -14,6 +14,7 @@ import {
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Textarea } from "@/components/ui/input";
@@ -208,13 +209,19 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                   </div>
                 </div>
                 <div className="mt-3 border-t border-border-subtle pt-3">
-                  <form action={deleteDeliverable}>
-                    <input type="hidden" name="id" value={deliverable.id} />
-                    <input type="hidden" name="campaign_id" value={campaign.id} />
-                    <Button type="submit" variant="ghost" size="sm" className="text-danger hover:text-danger">
-                      Delete deliverable
-                    </Button>
-                  </form>
+                  <ConfirmDialog
+                    triggerLabel="Delete deliverable"
+                    title="Delete deliverable?"
+                    description="This will permanently remove this deliverable from the campaign."
+                  >
+                    <form action={deleteDeliverable}>
+                      <input type="hidden" name="id" value={deliverable.id} />
+                      <input type="hidden" name="campaign_id" value={campaign.id} />
+                      <Button type="submit" variant="destructive" size="sm">
+                        Delete deliverable
+                      </Button>
+                    </form>
+                  </ConfirmDialog>
                 </div>
               </div>
             ))}
@@ -272,14 +279,20 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                   </div>
                 </div>
                 <div className="mt-3 border-t border-border-subtle pt-3">
-                  <form action={deletePayment}>
-                    <input type="hidden" name="id" value={payment.id} />
-                    <input type="hidden" name="campaign_id" value={campaign.id} />
-                    <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-                    <Button type="submit" variant="ghost" size="sm" className="text-danger hover:text-danger">
-                      Delete payment
-                    </Button>
-                  </form>
+                  <ConfirmDialog
+                    triggerLabel="Delete payment"
+                    title="Delete payment?"
+                    description="This will permanently remove this payment log and update the remaining balance."
+                  >
+                    <form action={deletePayment}>
+                      <input type="hidden" name="id" value={payment.id} />
+                      <input type="hidden" name="campaign_id" value={campaign.id} />
+                      <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+                      <Button type="submit" variant="destructive" size="sm">
+                        Delete payment
+                      </Button>
+                    </form>
+                  </ConfirmDialog>
                 </div>
               </div>
             ))}
@@ -291,13 +304,19 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
 
       <Card>
         <CardHeader title="Danger zone" description="Deleting this campaign removes its deliverables and payments." />
-        <form action={deleteCampaign}>
-          <input type="hidden" name="id" value={campaign.id} />
-          <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-          <Button type="submit" variant="destructive" size="sm">
-            Delete campaign
-          </Button>
-        </form>
+        <ConfirmDialog
+          triggerLabel="Delete campaign"
+          title="Delete campaign?"
+          description="This will permanently delete this campaign and all related deliverables and payments."
+        >
+          <form action={deleteCampaign}>
+            <input type="hidden" name="id" value={campaign.id} />
+            <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+            <Button type="submit" variant="destructive" size="sm">
+              Delete campaign
+            </Button>
+          </form>
+        </ConfirmDialog>
       </Card>
 
       <Card>

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createCampaign, deleteInfluencer, updateInfluencer } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Textarea } from "@/components/ui/input";
@@ -196,12 +197,18 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
 
       <Card>
         <CardHeader title="Danger zone" description="Deleting an influencer removes all related campaigns, deliverables, and payments." />
-        <form action={deleteInfluencer}>
-          <input type="hidden" name="id" value={influencer.id} />
-          <Button type="submit" variant="destructive" size="sm">
-            Delete influencer
-          </Button>
-        </form>
+        <ConfirmDialog
+          triggerLabel="Delete influencer"
+          title="Delete influencer?"
+          description="This will permanently delete this influencer and all related campaigns, deliverables, and payments."
+        >
+          <form action={deleteInfluencer}>
+            <input type="hidden" name="id" value={influencer.id} />
+            <Button type="submit" variant="destructive" size="sm">
+              Delete influencer
+            </Button>
+          </form>
+        </ConfirmDialog>
       </Card>
     </div>
   );

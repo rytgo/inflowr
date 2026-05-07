@@ -129,9 +129,11 @@ export function LandingPage({ isAuthenticated, userEmail }: LandingPageProps) {
             {isAuthenticated ? (
               <span className="hidden text-xs text-text-faint sm:inline">{userEmail ?? "Signed in"}</span>
             ) : null}
-            <Link href={isAuthenticated ? "/dashboard" : "/login"}>
-              <Button variant="ghost" size="sm">{isAuthenticated ? "Dashboard" : "Log in"}</Button>
-            </Link>
+            {!isAuthenticated ? (
+              <Link href="/login">
+                <Button variant="ghost" size="sm">Log in</Button>
+              </Link>
+            ) : null}
             <Link href={ctaHref}>
               <Button variant="secondary" size="sm">{ctaLabel}</Button>
             </Link>
