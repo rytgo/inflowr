@@ -135,6 +135,30 @@ export async function createInfluencer(formData: FormData) {
   }
 }
 
+export async function createInfluencerSmooth(formData: FormData) {
+  const supabase = await ensureAuthenticated();
+  const name = getString(formData, "name");
+  const platform = getString(formData, "platform");
+
+  if (!name || !platform) {
+    throw new Error("Name and platform are required.");
+  }
+
+  await assertNoError(
+    await (supabase.from("influencers") as any).insert({
+      name,
+      platform,
+      profile_url: getNullableUrl(formData, "profile_url"),
+      notes: getNullableString(formData, "notes")
+    })
+  );
+
+  revalidateCoreViews();
+  revalidatePath("/influencers");
+
+  return { ok: true };
+}
+
 export async function updateInfluencer(formData: FormData) {
   const id = getString(formData, "id");
   const fallback = id ? `/influencers/${id}` : "/influencers";
@@ -167,6 +191,34 @@ export async function updateInfluencer(formData: FormData) {
     if (isNextRedirect(error)) throw error;
     redirectError(fallback, readErrorMessage(error));
   }
+}
+
+export async function updateInfluencerSmooth(formData: FormData) {
+  const id = getString(formData, "id");
+  const supabase = await ensureAuthenticated();
+  const name = getString(formData, "name");
+  const platform = getString(formData, "platform");
+
+  if (!id || !name || !platform) {
+    throw new Error("Name and platform are required.");
+  }
+
+  await assertNoError(
+    await (supabase.from("influencers") as any)
+      .update({
+        name,
+        platform,
+        profile_url: getNullableUrl(formData, "profile_url"),
+        notes: getNullableString(formData, "notes")
+      })
+      .eq("id", id)
+  );
+
+  revalidateCoreViews();
+  revalidatePath("/influencers");
+  revalidatePath(`/influencers/${id}`);
+
+  return { ok: true };
 }
 
 export async function deleteInfluencer(formData: FormData) {
@@ -230,6 +282,39 @@ export async function createCampaign(formData: FormData) {
   }
 }
 
+export async function createCampaignSmooth(formData: FormData) {
+  const influencerId = getString(formData, "influencer_id");
+  const supabase = await ensureAuthenticated();
+  const name = getString(formData, "name");
+  const totalValue = getNumber(formData, "total_value");
+  const startDate = getNullableDate(formData, "start_date");
+  const endDate = getNullableDate(formData, "end_date");
+
+  if (!influencerId || !name || totalValue < 0) {
+    throw new Error("Campaign name and value are required.");
+  }
+
+  if (startDate && endDate && startDate > endDate) {
+    throw new Error("End date must be after start date.");
+  }
+
+  await assertNoError(
+    await (supabase.from("campaigns") as any).insert({
+      influencer_id: influencerId,
+      name,
+      total_value: totalValue,
+      notes: getNullableString(formData, "notes"),
+      start_date: startDate,
+      end_date: endDate
+    })
+  );
+
+  revalidateCoreViews();
+  revalidatePath(`/influencers/${influencerId}`);
+
+  return { ok: true };
+}
+
 export async function updateCampaign(formData: FormData) {
   const id = getString(formData, "id");
   const fallback = id ? `/campaigns/${id}` : "/dashboard";
@@ -268,6 +353,40 @@ export async function updateCampaign(formData: FormData) {
     if (isNextRedirect(error)) throw error;
     redirectError(fallback, readErrorMessage(error));
   }
+}
+
+export async function updateCampaignSmooth(formData: FormData) {
+  const id = getString(formData, "id");
+  const supabase = await ensureAuthenticated();
+  const name = getString(formData, "name");
+  const totalValue = getNumber(formData, "total_value");
+  const startDate = getNullableDate(formData, "start_date");
+  const endDate = getNullableDate(formData, "end_date");
+
+  if (!id || !name || totalValue < 0) {
+    throw new Error("Campaign name and value are required.");
+  }
+
+  if (startDate && endDate && startDate > endDate) {
+    throw new Error("End date must be after start date.");
+  }
+
+  await assertNoError(
+    await (supabase.from("campaigns") as any)
+      .update({
+        name,
+        total_value: totalValue,
+        notes: getNullableString(formData, "notes"),
+        start_date: startDate,
+        end_date: endDate
+      })
+      .eq("id", id)
+  );
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${id}`);
+
+  return { ok: true };
 }
 
 export async function deleteCampaign(formData: FormData) {
@@ -325,6 +444,32 @@ export async function createDeliverable(formData: FormData) {
   }
 }
 
+export async function createDeliverableSmooth(formData: FormData) {
+  const campaignId = getString(formData, "campaign_id");
+  const supabase = await ensureAuthenticated();
+  const title = getString(formData, "title");
+
+  if (!campaignId || !title) {
+    throw new Error("Deliverable title is required.");
+  }
+
+  await assertNoError(
+    await (supabase.from("deliverables") as any).insert({
+      campaign_id: campaignId,
+      title,
+      due_date: getNullableDate(formData, "due_date"),
+      live_url: getNullableUrl(formData, "live_url"),
+      is_posted: false,
+      posted_at: null
+    })
+  );
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${campaignId}`);
+
+  return { ok: true };
+}
+
 export async function updateDeliverable(formData: FormData) {
   const id = getString(formData, "id");
   const campaignId = getString(formData, "campaign_id");
@@ -338,12 +483,12 @@ export async function updateDeliverable(formData: FormData) {
       redirectError(fallback, "Deliverable title is required.");
     }
 
-    const isPosted = formData.get("is_posted") === "on";
     const { data: existing } = await (supabase.from("deliverables") as any)
       .select("is_posted, posted_at")
       .eq("id", id)
       .single();
 
+    const isPosted = formData.has("is_posted") ? formData.get("is_posted") === "on" : Boolean(existing?.is_posted);
     const postedAt = isPosted
       ? existing?.is_posted
         ? existing?.posted_at ?? new Date().toISOString()
@@ -371,6 +516,73 @@ export async function updateDeliverable(formData: FormData) {
   }
 }
 
+export async function updateDeliverableSmooth(formData: FormData) {
+  const id = getString(formData, "id");
+  const campaignId = getString(formData, "campaign_id");
+  const supabase = await ensureAuthenticated();
+  const title = getString(formData, "title");
+
+  if (!id || !campaignId || !title) {
+    throw new Error("Deliverable title is required.");
+  }
+
+  const { data: existing } = await (supabase.from("deliverables") as any)
+    .select("is_posted, posted_at")
+    .eq("id", id)
+    .single();
+
+  const isPosted = Boolean(existing?.is_posted);
+
+  await assertNoError(
+    await (supabase.from("deliverables") as any)
+      .update({
+        title,
+        due_date: getNullableDate(formData, "due_date"),
+        live_url: getNullableUrl(formData, "live_url"),
+        is_posted: isPosted,
+        posted_at: isPosted ? existing?.posted_at ?? new Date().toISOString() : null
+      })
+      .eq("id", id)
+      .eq("campaign_id", campaignId)
+  );
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${campaignId}`);
+
+  return { ok: true };
+}
+
+export async function setDeliverablePostedState({
+  id,
+  campaignId,
+  isPosted
+}: {
+  id: string;
+  campaignId: string;
+  isPosted: boolean;
+}) {
+  const supabase = await ensureAuthenticated();
+
+  if (!id || !campaignId) {
+    throw new Error("Deliverable id is missing.");
+  }
+
+  await assertNoError(
+    await (supabase.from("deliverables") as any)
+      .update({
+        is_posted: isPosted,
+        posted_at: isPosted ? new Date().toISOString() : null
+      })
+      .eq("id", id)
+      .eq("campaign_id", campaignId)
+  );
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${campaignId}`);
+
+  return { ok: true };
+}
+
 export async function deleteDeliverable(formData: FormData) {
   const id = getString(formData, "id");
   const campaignId = getString(formData, "campaign_id");
@@ -392,6 +604,23 @@ export async function deleteDeliverable(formData: FormData) {
     if (isNextRedirect(error)) throw error;
     redirectError(fallback, readErrorMessage(error));
   }
+}
+
+export async function deleteDeliverableSmooth(formData: FormData) {
+  const id = getString(formData, "id");
+  const campaignId = getString(formData, "campaign_id");
+  const supabase = await ensureAuthenticated();
+
+  if (!id || !campaignId) {
+    throw new Error("Deliverable id is missing.");
+  }
+
+  await assertNoError(await (supabase.from("deliverables") as any).delete().eq("id", id).eq("campaign_id", campaignId));
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${campaignId}`);
+
+  return { ok: true };
 }
 
 export async function createPayment(formData: FormData) {
@@ -424,6 +653,32 @@ export async function createPayment(formData: FormData) {
     if (isNextRedirect(error)) throw error;
     redirectError(fallback, readErrorMessage(error));
   }
+}
+
+export async function createPaymentSmooth(formData: FormData) {
+  const campaignId = getString(formData, "campaign_id");
+  const influencerId = getString(formData, "influencer_id");
+  const supabase = await ensureAuthenticated();
+  const amount = getNumber(formData, "amount");
+
+  if (!campaignId || amount < 0) {
+    throw new Error("Payment amount is required.");
+  }
+
+  await assertNoError(
+    await (supabase.from("payments") as any).insert({
+      campaign_id: campaignId,
+      amount,
+      payment_date: getDateOrToday(formData, "payment_date"),
+      note: getNullableString(formData, "note")
+    })
+  );
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${campaignId}`);
+  if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+
+  return { ok: true };
 }
 
 export async function updatePayment(formData: FormData) {
@@ -460,6 +715,35 @@ export async function updatePayment(formData: FormData) {
   }
 }
 
+export async function updatePaymentSmooth(formData: FormData) {
+  const id = getString(formData, "id");
+  const campaignId = getString(formData, "campaign_id");
+  const influencerId = getString(formData, "influencer_id");
+  const supabase = await ensureAuthenticated();
+  const amount = getNumber(formData, "amount");
+
+  if (!id || !campaignId || amount < 0) {
+    throw new Error("Valid payment amount is required.");
+  }
+
+  await assertNoError(
+    await (supabase.from("payments") as any)
+      .update({
+        amount,
+        payment_date: getDateOrToday(formData, "payment_date"),
+        note: getNullableString(formData, "note")
+      })
+      .eq("id", id)
+      .eq("campaign_id", campaignId)
+  );
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${campaignId}`);
+  if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+
+  return { ok: true };
+}
+
 export async function deletePayment(formData: FormData) {
   const id = getString(formData, "id");
   const campaignId = getString(formData, "campaign_id");
@@ -483,5 +767,24 @@ export async function deletePayment(formData: FormData) {
     if (isNextRedirect(error)) throw error;
     redirectError(fallback, readErrorMessage(error));
   }
+}
+
+export async function deletePaymentSmooth(formData: FormData) {
+  const id = getString(formData, "id");
+  const campaignId = getString(formData, "campaign_id");
+  const influencerId = getString(formData, "influencer_id");
+  const supabase = await ensureAuthenticated();
+
+  if (!id || !campaignId) {
+    throw new Error("Payment id is missing.");
+  }
+
+  await assertNoError(await (supabase.from("payments") as any).delete().eq("id", id).eq("campaign_id", campaignId));
+
+  revalidateCoreViews();
+  revalidatePath(`/campaigns/${campaignId}`);
+  if (influencerId) revalidatePath(`/influencers/${influencerId}`);
+
+  return { ok: true };
 }
 

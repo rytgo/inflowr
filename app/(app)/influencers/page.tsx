@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { createInfluencer } from "@/app/(app)/actions";
+import { createInfluencerSmooth } from "@/app/(app)/actions";
+import { SmoothForm } from "@/components/smooth-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
@@ -40,7 +41,7 @@ export default async function InfluencersPage() {
         description="Operate your creator roster with clean records and campaign links."
         action={
           <Drawer triggerLabel="New influencer" title="Create influencer" description="Add a creator to your private workspace.">
-            <form action={createInfluencer} className="grid grid-cols-1 gap-4">
+            <SmoothForm action={createInfluencerSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
               <Input name="name" required placeholder="Influencer name" label="Name" hint="Required" />
               <Input name="platform" required placeholder="Instagram, TikTok..." label="Platform" hint="Required" />
               <Input name="profile_url" placeholder="https://..." label="Profile URL" hint="Optional, must start with https://" />
@@ -48,7 +49,7 @@ export default async function InfluencersPage() {
               <div>
                 <Button type="submit">Create influencer</Button>
               </div>
-            </form>
+            </SmoothForm>
           </Drawer>
         }
       />

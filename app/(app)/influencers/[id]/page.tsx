@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createCampaign, deleteInfluencer, updateInfluencer } from "@/app/(app)/actions";
+import { createCampaignSmooth, deleteInfluencer, updateInfluencerSmooth } from "@/app/(app)/actions";
+import { SmoothForm } from "@/components/smooth-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -87,7 +88,7 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
         backLabel="Back to influencers"
         action={
           <Drawer triggerLabel="New campaign" title="Create campaign" description="Add a campaign under this influencer.">
-            <form action={createCampaign} className="grid grid-cols-1 gap-4">
+            <SmoothForm action={createCampaignSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
               <input type="hidden" name="influencer_id" value={influencer.id} />
               <Input name="name" required placeholder="Campaign name" label="Campaign name" hint="Required" />
               <Input name="total_value" type="number" step="0.01" min="0" defaultValue="0" label="Total value ($)" hint="Use 0 if unknown" />
@@ -97,7 +98,7 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
               <div>
                 <Button type="submit">Create campaign</Button>
               </div>
-            </form>
+            </SmoothForm>
           </Drawer>
         }
       />
@@ -115,7 +116,7 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
           description="Read mode by default. Open edit drawer when updates are needed."
           action={
             <Drawer triggerLabel="Edit details" title="Edit influencer" description="Update profile and notes.">
-              <form action={updateInfluencer} className="grid grid-cols-1 gap-4">
+              <SmoothForm action={updateInfluencerSmooth} className="grid grid-cols-1 gap-4">
                 <input type="hidden" name="id" value={influencer.id} />
                 <Input name="name" defaultValue={influencer.name} required label="Name" hint="Required" />
                 <Input name="platform" defaultValue={influencer.platform} required label="Platform" hint="Required" />
@@ -124,7 +125,7 @@ export default async function InfluencerDetailPage({ params }: InfluencerDetailP
                 <div>
                   <Button type="submit">Save changes</Button>
                 </div>
-              </form>
+              </SmoothForm>
             </Drawer>
           }
         />

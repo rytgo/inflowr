@@ -2,15 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
-  createDeliverable,
-  createPayment,
+  createDeliverableSmooth,
+  createPaymentSmooth,
   deleteCampaign,
-  deleteDeliverable,
-  deletePayment,
-  updateCampaign,
-  updateDeliverable,
-  updatePayment
+  deleteDeliverableSmooth,
+  deletePaymentSmooth,
+  updateCampaignSmooth,
+  updateDeliverableSmooth,
+  updatePaymentSmooth
 } from "@/app/(app)/actions";
+import { DeliverablePostedButton } from "@/components/deliverable-posted-button";
+import { SmoothForm } from "@/components/smooth-form";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -21,7 +23,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { deriveCampaignStatus, formatCurrency, getNextScheduledDate } from "@/lib/campaign-logic";
-import { parseDateOnly } from "@/lib/date";
+import { parseDateOnly, todayDateOnly } from "@/lib/date";
 import { createClient } from "@/lib/supabase/server";
 
 type CampaignDetailPageProps = {
@@ -36,6 +38,17 @@ function formatDate(value: string | null): string {
     parseDateOnly(value)
   );
 }
+
+type TimelineItem = {
+  id: string;
+  date: string;
+  sortTime: number;
+  type: "deliverable" | "payment";
+  title: string;
+  description: string;
+  badge: React.ReactNode;
+  detail?: React.ReactNode;
+};
 
 export default async function CampaignDetailPage({ params }: CampaignDetailPageProps) {
   const supabase = createClient();
@@ -96,6 +109,51 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
   const totalPaid = payments.reduce((sum, item) => sum + Number(item.amount), 0);
   const remaining = Number(campaign.total_value) - totalPaid;
   const deliverablesRemaining = deliverables.filter((item) => !item.is_posted).length;
+  const today = todayDateOnly();
+
+  const timelineItems: TimelineItem[] = [
+    ...deliverables
+      .filter((deliverable) => deliverable.due_date)
+      .map((deliverable) => {
+        const due = parseDateOnly(deliverable.due_date as string);
+        const isOverdue = !deliverable.is_posted && due < today;
+
+        return {
+          id: `deliverable-${deliverable.id}`,
+          date: deliverable.due_date as string,
+          sortTime: due.getTime(),
+          type: "deliverable" as const,
+          title: deliverable.title,
+          description: `Deliverable due ${formatDate(deliverable.due_date)}`,
+          badge: deliverable.is_posted ? (
+            <Badge variant="completed">Posted</Badge>
+          ) : isOverdue ? (
+            <Badge variant="overdue">Overdue</Badge>
+          ) : (
+            <Badge variant="active">Pending</Badge>
+          ),
+          detail: deliverable.live_url ? (
+            <a href={deliverable.live_url} target="_blank" rel="noreferrer" className="text-xs font-medium text-accent hover:text-accent-hover">
+              Open live link
+            </a>
+          ) : null
+        };
+      }),
+    ...payments.map((payment) => {
+      const paymentDate = parseDateOnly(payment.payment_date);
+
+      return {
+        id: `payment-${payment.id}`,
+        date: payment.payment_date,
+        sortTime: paymentDate.getTime(),
+        type: "payment" as const,
+        title: formatCurrency(Number(payment.amount)),
+        description: `Payment logged ${formatDate(payment.payment_date)}`,
+        badge: <Badge variant="warning">Payment</Badge>,
+        detail: payment.note ? <p className="text-sm text-text-secondary">{payment.note}</p> : null
+      };
+    })
+  ].sort((a, b) => a.sortTime - b.sortTime || a.type.localeCompare(b.type));
 
   return (
     <div className="page-enter space-y-6">
@@ -107,7 +165,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
         meta={<Badge variant={statusToBadgeVariant(status)}>{status}</Badge>}
         action={
           <Drawer triggerLabel="Edit campaign" title="Edit campaign" description="Update campaign metadata.">
-            <form action={updateCampaign} className="grid grid-cols-1 gap-4">
+            <SmoothForm action={updateCampaignSmooth} className="grid grid-cols-1 gap-4">
               <input type="hidden" name="id" value={campaign.id} />
               <Input name="name" defaultValue={campaign.name} required label="Campaign name" hint="Required" />
               <Input name="total_value" type="number" min="0" step="0.01" defaultValue={Number(campaign.total_value)} label="Total value ($)" hint="Cannot be negative" />
@@ -117,7 +175,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
               <div>
                 <Button type="submit">Save campaign</Button>
               </div>
-            </form>
+            </SmoothForm>
           </Drawer>
         }
       />
@@ -155,13 +213,44 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
         </div>
       </Card>
 
+      <Card id="timeline" className="scroll-mt-24">
+        <CardHeader
+          title="Campaign timeline"
+          description="Deliverable due dates and payment logs shown together for contract context."
+        />
+        {timelineItems.length ? (
+          <div className="space-y-3">
+            {timelineItems.map((item) => (
+              <div key={item.id} className="grid grid-cols-1 gap-3 rounded-sm border border-border-subtle bg-panel-soft/45 p-4 md:grid-cols-[140px_1fr]">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.08em] text-text-faint">{formatDate(item.date)}</p>
+                  <p className="mt-1 text-xs font-medium text-text-muted">{item.type === "payment" ? "Payment" : "Deliverable"}</p>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-text-primary">{item.title}</p>
+                      <p className="mt-1 text-xs text-text-faint">{item.description}</p>
+                    </div>
+                    {item.badge}
+                  </div>
+                  {item.detail ? <div className="mt-2">{item.detail}</div> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="No timeline activity yet" description="Add deliverables with due dates or log payments to build campaign context." />
+        )}
+      </Card>
+
       <Card id="deliverables" className="scroll-mt-24">
         <CardHeader
           title="Deliverables"
           description={`${deliverablesRemaining} open of ${deliverables.length} total`}
           action={
             <Drawer triggerLabel="New deliverable" title="Create deliverable" description="Add a deliverable to this campaign.">
-              <form action={createDeliverable} className="grid grid-cols-1 gap-4">
+              <SmoothForm action={createDeliverableSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
                 <input type="hidden" name="campaign_id" value={campaign.id} />
                 <Input name="title" required placeholder="Deliverable title" label="Title" hint="Required" />
                 <Input name="due_date" type="date" label="Due date" />
@@ -169,7 +258,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                 <div>
                   <Button type="submit">Create deliverable</Button>
                 </div>
-              </form>
+              </SmoothForm>
             </Drawer>
           }
         />
@@ -190,38 +279,43 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                         Open link
                       </a>
                     ) : null}
-                    <Drawer triggerLabel="Edit" triggerVariant="ghost" size="sm" title="Edit deliverable" description="Update title, due date, URL, and status.">
-                      <form action={updateDeliverable} className="grid grid-cols-1 gap-4">
-                        <input type="hidden" name="id" value={deliverable.id} />
-                        <input type="hidden" name="campaign_id" value={campaign.id} />
-                        <Input name="title" required defaultValue={deliverable.title} label="Title" hint="Required" />
-                        <Input name="due_date" type="date" defaultValue={deliverable.due_date ?? ""} label="Due date" />
-                        <Input name="live_url" defaultValue={deliverable.live_url ?? ""} placeholder="https://..." label="Live URL" />
-                        <label className="flex items-center gap-2 text-sm text-text-secondary">
-                          <input type="checkbox" name="is_posted" defaultChecked={deliverable.is_posted} className="h-4 w-4 accent-accent" />
-                          Mark as posted
-                        </label>
-                        <div>
-                          <Button type="submit">Save deliverable</Button>
+                    <DeliverablePostedButton
+                      campaignId={campaign.id}
+                      deliverableId={deliverable.id}
+                      isPosted={deliverable.is_posted}
+                    />
+                    <Drawer triggerLabel="Edit" triggerVariant="ghost" size="sm" title="Edit deliverable" description="Update title, due date, live URL, or remove this deliverable.">
+                      <div className="space-y-5">
+                        <SmoothForm action={updateDeliverableSmooth} className="grid grid-cols-1 gap-4">
+                          <input type="hidden" name="id" value={deliverable.id} />
+                          <input type="hidden" name="campaign_id" value={campaign.id} />
+                          <Input name="title" required defaultValue={deliverable.title} label="Title" hint="Required" />
+                          <Input name="due_date" type="date" defaultValue={deliverable.due_date ?? ""} label="Due date" />
+                          <Input name="live_url" defaultValue={deliverable.live_url ?? ""} placeholder="https://..." label="Live URL" />
+                          <div>
+                            <Button type="submit">Save deliverable</Button>
+                          </div>
+                        </SmoothForm>
+
+                        <div className="border-t border-border-subtle pt-4">
+                          <p className="mb-3 text-xs text-text-muted">Remove this deliverable from the campaign.</p>
+                          <ConfirmDialog
+                            triggerLabel="Delete"
+                            title="Delete deliverable?"
+                            description="This will permanently remove this deliverable from the campaign."
+                          >
+                            <SmoothForm action={deleteDeliverableSmooth}>
+                              <input type="hidden" name="id" value={deliverable.id} />
+                              <input type="hidden" name="campaign_id" value={campaign.id} />
+                              <Button type="submit" variant="destructive" size="sm">
+                                Delete deliverable
+                              </Button>
+                            </SmoothForm>
+                          </ConfirmDialog>
                         </div>
-                      </form>
+                      </div>
                     </Drawer>
                   </div>
-                </div>
-                <div className="mt-3 border-t border-border-subtle pt-3">
-                  <ConfirmDialog
-                    triggerLabel="Delete deliverable"
-                    title="Delete deliverable?"
-                    description="This will permanently remove this deliverable from the campaign."
-                  >
-                    <form action={deleteDeliverable}>
-                      <input type="hidden" name="id" value={deliverable.id} />
-                      <input type="hidden" name="campaign_id" value={campaign.id} />
-                      <Button type="submit" variant="destructive" size="sm">
-                        Delete deliverable
-                      </Button>
-                    </form>
-                  </ConfirmDialog>
                 </div>
               </div>
             ))}
@@ -237,16 +331,16 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
           description="Payment logs keep paid and remaining balances accurate."
           action={
             <Drawer triggerLabel="Log payment" title="Log payment" description="Add a payment record for this campaign.">
-              <form action={createPayment} className="grid grid-cols-1 gap-4">
+              <SmoothForm action={createPaymentSmooth} className="grid grid-cols-1 gap-4" resetOnSuccess>
                 <input type="hidden" name="campaign_id" value={campaign.id} />
                 <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
                 <Input name="amount" required type="number" min="0" step="0.01" placeholder="0.00" label="Amount ($)" hint="Cannot be negative" />
                 <Input name="payment_date" type="date" label="Date" />
-                <Input name="note" placeholder="Payment note" label="Note" />
+                <Input name="note" placeholder="Deposit, final payment, payment for Reel 1, bonus..." label="Note" />
                 <div>
                   <Button type="submit">Log payment</Button>
                 </div>
-              </form>
+              </SmoothForm>
             </Drawer>
           }
         />
@@ -263,36 +357,40 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant="active">Logged</Badge>
-                    <Drawer triggerLabel="Edit" triggerVariant="ghost" size="sm" title="Edit payment" description="Update amount, date, and note.">
-                      <form action={updatePayment} className="grid grid-cols-1 gap-4">
-                        <input type="hidden" name="id" value={payment.id} />
-                        <input type="hidden" name="campaign_id" value={campaign.id} />
-                        <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-                        <Input name="amount" required type="number" min="0" step="0.01" defaultValue={Number(payment.amount)} label="Amount" hint="Cannot be negative" />
-                        <Input name="payment_date" type="date" defaultValue={payment.payment_date} label="Date" />
-                        <Input name="note" defaultValue={payment.note ?? ""} placeholder="Payment note" label="Note" />
-                        <div>
-                          <Button type="submit">Save payment</Button>
+                    <Drawer triggerLabel="Edit" triggerVariant="ghost" size="sm" title="Edit payment" description="Update amount, date, note, or remove this payment log.">
+                      <div className="space-y-5">
+                        <SmoothForm action={updatePaymentSmooth} className="grid grid-cols-1 gap-4">
+                          <input type="hidden" name="id" value={payment.id} />
+                          <input type="hidden" name="campaign_id" value={campaign.id} />
+                          <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+                          <Input name="amount" required type="number" min="0" step="0.01" defaultValue={Number(payment.amount)} label="Amount" hint="Cannot be negative" />
+                          <Input name="payment_date" type="date" defaultValue={payment.payment_date} label="Date" />
+                          <Input name="note" defaultValue={payment.note ?? ""} placeholder="Deposit, final payment, payment for Reel 1, bonus..." label="Note" />
+                          <div>
+                            <Button type="submit">Save payment</Button>
+                          </div>
+                        </SmoothForm>
+
+                        <div className="border-t border-border-subtle pt-4">
+                          <p className="mb-3 text-xs text-text-muted">Remove this payment log and recalculate the remaining balance.</p>
+                          <ConfirmDialog
+                            triggerLabel="Delete"
+                            title="Delete payment?"
+                            description="This will permanently remove this payment log and update the remaining balance."
+                          >
+                            <SmoothForm action={deletePaymentSmooth}>
+                              <input type="hidden" name="id" value={payment.id} />
+                              <input type="hidden" name="campaign_id" value={campaign.id} />
+                              <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
+                              <Button type="submit" variant="destructive" size="sm">
+                                Delete payment
+                              </Button>
+                            </SmoothForm>
+                          </ConfirmDialog>
                         </div>
-                      </form>
+                      </div>
                     </Drawer>
                   </div>
-                </div>
-                <div className="mt-3 border-t border-border-subtle pt-3">
-                  <ConfirmDialog
-                    triggerLabel="Delete payment"
-                    title="Delete payment?"
-                    description="This will permanently remove this payment log and update the remaining balance."
-                  >
-                    <form action={deletePayment}>
-                      <input type="hidden" name="id" value={payment.id} />
-                      <input type="hidden" name="campaign_id" value={campaign.id} />
-                      <input type="hidden" name="influencer_id" value={campaign.influencer_id} />
-                      <Button type="submit" variant="destructive" size="sm">
-                        Delete payment
-                      </Button>
-                    </form>
-                  </ConfirmDialog>
                 </div>
               </div>
             ))}
@@ -324,6 +422,9 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
         <div className="flex flex-wrap gap-2">
           <a href="#deliverables">
             <Button variant="ghost" size="sm">Deliverables</Button>
+          </a>
+          <a href="#timeline">
+            <Button variant="ghost" size="sm">Timeline</Button>
           </a>
           <a href="#payments">
             <Button variant="ghost" size="sm">Payments</Button>
